@@ -1,0 +1,18 @@
+# Configuración para air
+
+root = "."
+tmp_dir = "tmp"
+
+# Comando para ejecutar la aplicación
+[build]
+  cmd = "go build -o /usr/local/bin/app ./cmd/main.go"
+  bin = "/usr/local/bin/app"
+  exclude_dir = ["assets", "tmp", "vendor", "testdata", "DB", ".docker"]
+
+# Opciones para el entorno de desarrollo
+[color]
+  app = ""
+  build = "yellow"
+  main = "magenta"
+  runner = "green"
+  watcher = "cyan"

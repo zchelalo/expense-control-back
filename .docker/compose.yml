@@ -1,0 +1,51 @@
+services:
+  expense-control-back:
+    build:
+      context: ../
+      dockerfile: .docker/Dockerfile
+    container_name: expense-control-back
+    environment:
+      TZ: America/Hermosillo
+    volumes:
+      - ../:/usr/src/app
+    ports:
+      - 8000:8000
+    networks:
+      - expense-control-back-network
+
+  expense-control-back-db:
+    image: postgres:17.6
+    container_name: expense-control-back-db
+    environment:
+      POSTGRES_PASSWORD: example
+      POSTGRES_DB: expense-control-back
+      TZ: America/Hermosillo
+    volumes:
+      - ../DB/postgresql:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - expense-control-back-network
+
+  expense-control-back-adminer:
+    image: adminer
+    container_name: expense-control-back-adminer
+    environment:
+      TZ: America/Hermosillo
+      ADMINER_DESIGN: "ng9"
+    ports:
+      - 8080:8080
+    depends_on:
+      expense-control-back-db:
+        condition: service_started
+    networks:
+      - expense-control-back-network
+
+networks:
+  expense-control-back-network:
+    driver: bridge
