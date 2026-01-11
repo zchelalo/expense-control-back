@@ -31,7 +31,7 @@ func main() {
 	}
 	defer shutdownTracing(context.Background())
 
-	mdw := middleware.New()
+	mdw := middleware.New(log, cfg.AllowedOrigins)
 	address := fmt.Sprintf("0.0.0.0:%d", cfg.Port)
 
 	s, err := server.New(address, mdw)

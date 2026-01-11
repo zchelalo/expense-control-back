@@ -41,14 +41,26 @@ func InitTracing(ctx context.Context, serviceName, environment string) (Shutdown
 		return nil, err
 	}
 
+	var traceIDRationBased float64
+	switch environment {
+	case "production", "prod" :
+		traceIDRationBased = 0.05
+	case "staging":
+		traceIDRationBased = 0.2
+	default:
+		traceIDRationBased = 1.0
+	}
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exp),
 		sdktrace.WithResource(res),
-		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(1.0))),
+		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(traceIDRationBased))),
 	)
 
 	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(propagation.TraceContext{})
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
 
 	return func(ctx context.Context) error {
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)

@@ -2,18 +2,22 @@ package middleware
 
 import (
 	"net/http"
+
+	"go.uber.org/zap"
 )
 
 type Middleware struct {
+  Log *zap.Logger
+	AllowedOrigins string
 }
 
-func New() *Middleware {
-	return &Middleware{}
+func New(log *zap.Logger, allowedOrigins string) *Middleware {
+  return &Middleware{Log: log, AllowedOrigins: allowedOrigins}
 }
 
 func ApplyMiddlewares(handler http.Handler, middlewares ...func(http.Handler) http.Handler) http.Handler {
-	for _, middleware := range middlewares {
-		handler = middleware(handler)
+	for i := len(middlewares) - 1; i >= 0; i-- {
+		handler = middlewares[i](handler)
 	}
 	return handler
 }

@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -17,19 +19,34 @@ type Server struct {
 func New(address string, mdw *middleware.Middleware, routerRegistrations ...func(*http.ServeMux)) (*Server, error) {
 	mux := http.NewServeMux()
 
-	mux.Handle("GET /metrics", otelhttp.NewHandler(promhttp.Handler(), "GET /metrics"))
-	mux.Handle("GET /health", otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("GET /health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-	}), "GET /health"))
+	}))
+	mux.Handle("GET /metrics", promhttp.Handler())
 
 	for _, register := range routerRegistrations {
 		register(mux)
 	}
 
 	var handler http.Handler = mux
-	handler = otelhttp.NewHandler(handler, "http.server")
+	handler = otelhttp.NewHandler(handler, "http.server",
+		otelhttp.WithFilter(func(r *http.Request) bool {
+			return !middleware.ShouldSkipObservability(r.URL.Path)
+		}),
+		otelhttp.WithSpanNameFormatter(func(operation string, r *http.Request) string {
+			path := r.URL.Path
+			if path != "/" {
+				path = strings.TrimSuffix(path, "/")
+			}
+			return fmt.Sprintf("%s %s", r.Method, path)
+		}),
+	)
 
-	// handler = middleware.ApplyMiddlewares(handler, mdw.XMiddleware...)
+	handler = middleware.ApplyMiddlewares(handler,
+		mdw.InjectLogger,
+		mdw.LogRequest,
+		mdw.AccessControl,
+	)
 
 	srv := &http.Server{
 		Addr:              address,
@@ -43,10 +60,5 @@ func New(address string, mdw *middleware.Middleware, routerRegistrations ...func
 	return &Server{httpServer: srv}, nil
 }
 
-func (s *Server) Start() error {
-	return s.httpServer.ListenAndServe()
-}
-
-func (s *Server) Shutdown(ctx context.Context) error {
-	return s.httpServer.Shutdown(ctx)
-}
+func (s *Server) Start() error { return s.httpServer.ListenAndServe() }
+func (s *Server) Shutdown(ctx context.Context) error { return s.httpServer.Shutdown(ctx) }

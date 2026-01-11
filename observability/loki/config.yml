@@ -25,13 +25,5 @@ schema_config:
         prefix: index_
         period: 24h
 
-ruler:
-  storage:
-    type: local
-    local:
-      directory: /tmp/loki/rules
-  rule_path: /tmp/loki/rules-temp
-  alertmanager_url: http://localhost:9093
-
 analytics:
   reporting_enabled: false

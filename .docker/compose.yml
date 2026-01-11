@@ -49,7 +49,7 @@ services:
       - expense-control-back-network
 
   expense-control-grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:main-ubuntu
     container_name: expense-control-grafana
     ports:
       - 3000:3000
@@ -57,6 +57,7 @@ services:
       - expense-control-back-network
     volumes:
       - ../observability/grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
 
   expense-control-prometheus:
     image: prom/prometheus:latest
@@ -67,6 +68,7 @@ services:
       - expense-control-back-network
     volumes:
       - ../observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
 
   expense-control-loki:
     image: grafana/loki:2.9.8
@@ -78,6 +80,7 @@ services:
     command: -config.file=/etc/loki/config.yml
     volumes:
       - ../observability/loki/config.yml:/etc/loki/config.yml
+      - loki_data:/tmp/loki
 
   expense-control-tempo:
     image: grafana/tempo:2.4.1
@@ -89,6 +92,7 @@ services:
     command: ["-config.file=/etc/tempo/config.yml"]
     volumes:
       - ../observability/tempo/config.yml:/etc/tempo/config.yml
+      - tempo_data:/tmp/tempo
 
   expense-control-otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
@@ -112,6 +116,7 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ../observability/promtail/config.yml:/etc/promtail/config.yml
+      - promtail_data:/var/lib/promtail
     command: -config.file=/etc/promtail/config.yml
     depends_on:
       - expense-control-loki
@@ -122,3 +127,8 @@ networks:
 
 volumes:
   pgdata:
+  loki_data:
+  tempo_data:
+  prometheus_data:
+  grafana_data:
+  promtail_data:
