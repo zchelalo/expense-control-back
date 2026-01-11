@@ -31,6 +31,7 @@ type Config struct {
 	DBPort                            int
 	PaginatorLimitDefault             int
 	AllowedOrigins                    string
+	OtelExporterOtlpEndpoint 				  string
 }
 
 func LoadConfig(dotenvPath string) (Config, error) {
@@ -40,6 +41,7 @@ func LoadConfig(dotenvPath string) (Config, error) {
 			"SERVICE_NAME": "expense-control-back",
 			"PORT": 8000,
 			"PAGINATOR_LIMIT_DEFAULT": 10,
+			"OTEL_EXPORTER_OTLP_ENDPOINT": "expense-control-otel-collector:4317",
 		}, "."), nil)
 		if loadErr != nil { return }
 
@@ -106,6 +108,7 @@ func LoadConfig(dotenvPath string) (Config, error) {
 			DBPort:                dbPort,
 			PaginatorLimitDefault: paginatorLimitDefault,
 			AllowedOrigins:        k.String("ALLOWED_ORIGINS"),
+			OtelExporterOtlpEndpoint: k.String("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		}
 	})
 	return config, loadErr

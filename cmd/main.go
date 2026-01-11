@@ -1,9 +1,23 @@
 package main
 
-import "github.com/zchelalo/expense-control-back/pkg/bootstrap"
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/zchelalo/expense-control-back/internal/middleware"
+	"github.com/zchelalo/expense-control-back/internal/server"
+	"github.com/zchelalo/expense-control-back/pkg/bootstrap"
+	"github.com/zchelalo/expense-control-back/pkg/observability"
+	"go.uber.org/zap"
+)
 
 func main() {
-	_, err := bootstrap.LoadConfig(".env")
+	cfg, err := bootstrap.LoadConfig(".env")
 	if err != nil {
 		panic(err)
 	}
@@ -11,5 +25,43 @@ func main() {
 	log := bootstrap.GetLogger()
 	defer bootstrap.SyncLogger()
 
-	log.Info("application starting")
+	shutdownTracing, err := observability.InitTracing(context.Background(), cfg.ServiceName, cfg.Environment)
+	if err != nil {
+		log.Fatal("cannot init tracing", zap.Error(err))
+	}
+	defer shutdownTracing(context.Background())
+
+	mdw := middleware.New()
+	address := fmt.Sprintf("0.0.0.0:%d", cfg.Port)
+
+	s, err := server.New(address, mdw)
+	if err != nil {
+		log.Fatal("cannot create server", zap.Error(err))
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		log.Info("server starting", zap.String("addr", address))
+		if err := s.Start(); err != nil && err != http.ErrServerClosed {
+			errCh <- err
+		}
+	}()
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+
+	select {
+	case sig := <-sigs:
+		log.Info("signal received, shutting down", zap.String("signal", sig.String()))
+	case err := <-errCh:
+		log.Error("server error", zap.Error(err))
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := s.Shutdown(ctx); err != nil {
+		log.Error("shutdown failed", zap.Error(err))
+	}
+	log.Info("shutdown complete")
 }
