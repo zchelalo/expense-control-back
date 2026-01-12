@@ -43,6 +43,7 @@ func New(address string, mdw *middleware.Middleware, routerRegistrations ...func
 	)
 
 	handler = middleware.ApplyMiddlewares(handler,
+		mdw.RequestID,
 		mdw.InjectLogger,
 		mdw.LogRequest,
 		mdw.AccessControl,
