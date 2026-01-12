@@ -7,6 +7,6 @@ import (
 )
 
 type CredentialStore interface {
-	CreateAccount(ctx context.Context, email domain.Email, passHash domain.PasswordHash) (domain.SubjectID, error)
+	CreateAccount(ctx context.Context, acc domain.Account) (domain.SubjectID, error)
 	ByEmail(ctx context.Context, email domain.Email) (domain.Account, error)
 }
