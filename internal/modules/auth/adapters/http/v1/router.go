@@ -21,9 +21,9 @@ func NewRouter(registerUC *register.UseCase, secureCookies bool) *Router {
 }
 
 func (r *Router) Register(mux *http.ServeMux) {
-	mux.Handle("POST /auth/register", http.HandlerFunc(r.handler.Register))
+	mux.Handle("POST /v1/auth/register", http.HandlerFunc(r.handler.Register))
 
-	// mux.Handle("POST /auth/login", http.HandlerFunc(r.handler.Login))
-	// mux.Handle("POST /auth/refresh", http.HandlerFunc(r.handler.Refresh))
-	// mux.Handle("POST /auth/logout", middleware.ApplyMiddlewares(http.HandlerFunc(r.handler.Logout), r.middleware.Auth))
+	// mux.Handle("POST /v1/auth/login", http.HandlerFunc(r.handler.Login))
+	// mux.Handle("POST /v1/auth/refresh", http.HandlerFunc(r.handler.Refresh))
+	// mux.Handle("POST /v1/auth/logout", middleware.ApplyMiddlewares(http.HandlerFunc(r.handler.Logout), r.middleware.Auth))
 }

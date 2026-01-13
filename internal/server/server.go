@@ -18,15 +18,18 @@ type Server struct {
 
 func New(address string, mdw *middleware.Middleware, routerRegistrations ...func(*http.ServeMux)) (*Server, error) {
 	mux := http.NewServeMux()
+	apiMux := http.NewServeMux()
 
-	mux.Handle("GET /health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	apiMux.Handle("GET /health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
-	mux.Handle("GET /metrics", promhttp.Handler())
+	apiMux.Handle("GET /metrics", promhttp.Handler())
 
 	for _, register := range routerRegistrations {
-		register(mux)
+		register(apiMux)
 	}
+
+	mux.Handle("/api/", http.StripPrefix("/api", apiMux))
 
 	var handler http.Handler = mux
 	handler = otelhttp.NewHandler(handler, "http.server",

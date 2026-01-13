@@ -2,3 +2,5 @@
 DB
 endpoints
 tmp
+keys/*
+!keys/.gitkeep

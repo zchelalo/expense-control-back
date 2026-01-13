@@ -45,7 +45,10 @@ compose-down:
 create-envs:
 	cp .env.example .env
 
+create-keys:
+	./scripts/create_keys.sh
+
 sqlc:
 	sqlc generate
 
-.PHONY: migrate-up migrate-up-1 migrate-down migrate-down-1 setup compose compose-build compose-build-detached compose-down create-envs sqlc
+.PHONY: migrate-up migrate-up-1 migrate-down migrate-down-1 setup compose compose-build compose-build-detached compose-down create-envs create-keys sqlc
