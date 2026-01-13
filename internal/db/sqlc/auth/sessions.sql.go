@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const createSession = `-- name: CreateSession :one
+const createSession = `-- name: CreateSession :exec
 INSERT INTO auth_sessions (
   id,
   user_id,
@@ -21,13 +21,6 @@ INSERT INTO auth_sessions (
   revoked_at
 )
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING
-  id,
-  user_id,
-  refresh_jti,
-  created_at,
-  expires_at,
-  revoked_at
 `
 
 type CreateSessionParams struct {
@@ -39,17 +32,8 @@ type CreateSessionParams struct {
 	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
 }
 
-type CreateSessionRow struct {
-	ID         pgtype.UUID        `json:"id"`
-	UserID     pgtype.UUID        `json:"user_id"`
-	RefreshJti pgtype.UUID        `json:"refresh_jti"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
-	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
-}
-
-func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (CreateSessionRow, error) {
-	row := q.db.QueryRow(ctx, createSession,
+func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) error {
+	_, err := q.db.Exec(ctx, createSession,
 		arg.ID,
 		arg.UserID,
 		arg.RefreshJti,
@@ -57,16 +41,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (C
 		arg.ExpiresAt,
 		arg.RevokedAt,
 	)
-	var i CreateSessionRow
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.RefreshJti,
-		&i.CreatedAt,
-		&i.ExpiresAt,
-		&i.RevokedAt,
-	)
-	return i, err
+	return err
 }
 
 const getSessionByID = `-- name: GetSessionByID :one
@@ -105,19 +80,12 @@ func (q *Queries) GetSessionByID(ctx context.Context, id pgtype.UUID) (GetSessio
 	return i, err
 }
 
-const revokeSession = `-- name: RevokeSession :one
+const revokeSession = `-- name: RevokeSession :exec
 UPDATE auth_sessions
 SET
   revoked_at = $2
 WHERE id = $1
 AND revoked_at IS NULL
-RETURNING
-  id,
-  user_id,
-  refresh_jti,
-  created_at,
-  expires_at,
-  revoked_at
 `
 
 type RevokeSessionParams struct {
@@ -125,43 +93,18 @@ type RevokeSessionParams struct {
 	RevokedAt pgtype.Timestamptz `json:"revoked_at"`
 }
 
-type RevokeSessionRow struct {
-	ID         pgtype.UUID        `json:"id"`
-	UserID     pgtype.UUID        `json:"user_id"`
-	RefreshJti pgtype.UUID        `json:"refresh_jti"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
-	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
+func (q *Queries) RevokeSession(ctx context.Context, arg RevokeSessionParams) error {
+	_, err := q.db.Exec(ctx, revokeSession, arg.ID, arg.RevokedAt)
+	return err
 }
 
-func (q *Queries) RevokeSession(ctx context.Context, arg RevokeSessionParams) (RevokeSessionRow, error) {
-	row := q.db.QueryRow(ctx, revokeSession, arg.ID, arg.RevokedAt)
-	var i RevokeSessionRow
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.RefreshJti,
-		&i.CreatedAt,
-		&i.ExpiresAt,
-		&i.RevokedAt,
-	)
-	return i, err
-}
-
-const rotateSessionRefreshID = `-- name: RotateSessionRefreshID :one
+const rotateSessionRefreshID = `-- name: RotateSessionRefreshID :exec
 UPDATE auth_sessions
 SET
   refresh_jti = $2,
   expires_at = $3
 WHERE id = $1
 AND revoked_at IS NULL
-RETURNING
-  id,
-  user_id,
-  refresh_jti,
-  created_at,
-  expires_at,
-  revoked_at
 `
 
 type RotateSessionRefreshIDParams struct {
@@ -170,25 +113,7 @@ type RotateSessionRefreshIDParams struct {
 	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
 }
 
-type RotateSessionRefreshIDRow struct {
-	ID         pgtype.UUID        `json:"id"`
-	UserID     pgtype.UUID        `json:"user_id"`
-	RefreshJti pgtype.UUID        `json:"refresh_jti"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
-	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
-}
-
-func (q *Queries) RotateSessionRefreshID(ctx context.Context, arg RotateSessionRefreshIDParams) (RotateSessionRefreshIDRow, error) {
-	row := q.db.QueryRow(ctx, rotateSessionRefreshID, arg.ID, arg.RefreshJti, arg.ExpiresAt)
-	var i RotateSessionRefreshIDRow
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.RefreshJti,
-		&i.CreatedAt,
-		&i.ExpiresAt,
-		&i.RevokedAt,
-	)
-	return i, err
+func (q *Queries) RotateSessionRefreshID(ctx context.Context, arg RotateSessionRefreshIDParams) error {
+	_, err := q.db.Exec(ctx, rotateSessionRefreshID, arg.ID, arg.RefreshJti, arg.ExpiresAt)
+	return err
 }

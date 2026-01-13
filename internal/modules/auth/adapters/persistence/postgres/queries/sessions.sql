@@ -1,4 +1,4 @@
--- name: CreateSession :one
+-- name: CreateSession :exec
 INSERT INTO auth_sessions (
   id,
   user_id,
@@ -8,13 +8,6 @@ INSERT INTO auth_sessions (
   revoked_at
 )
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING
-  id,
-  user_id,
-  refresh_jti,
-  created_at,
-  expires_at,
-  revoked_at
 ;
 
 -- name: GetSessionByID :one
@@ -30,33 +23,19 @@ WHERE id = $1
 AND revoked_at IS NULL
 ;
 
--- name: RotateSessionRefreshID :one
+-- name: RotateSessionRefreshID :exec
 UPDATE auth_sessions
 SET
   refresh_jti = $2,
   expires_at = $3
 WHERE id = $1
 AND revoked_at IS NULL
-RETURNING
-  id,
-  user_id,
-  refresh_jti,
-  created_at,
-  expires_at,
-  revoked_at
 ;
 
--- name: RevokeSession :one
+-- name: RevokeSession :exec
 UPDATE auth_sessions
 SET
   revoked_at = $2
 WHERE id = $1
 AND revoked_at IS NULL
-RETURNING
-  id,
-  user_id,
-  refresh_jti,
-  created_at,
-  expires_at,
-  revoked_at
 ;
