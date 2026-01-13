@@ -4,10 +4,31 @@ ifneq ("$(wildcard .env)", "")
 endif
 
 DOCKER_COMPOSE_FILE = ./.docker/compose.yml
+DOCKER_NETWORK_PREFIX = docker_
+DOCKER_NETWORK_NAME = expense-control-back-network
+DOCKER_NETWORK = $(DOCKER_NETWORK_PREFIX)$(DOCKER_NETWORK_NAME)
+
+URI_DB = postgresql://$(DB_USER):$(DB_PASS)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=disable
+MIGRATE = docker run -v $(shell pwd)/internal/db/migrations:/migrations --network $(DOCKER_NETWORK) migrate/migrate -path /migrations -database "$(URI_DB)" -verbose
 
 setup:
 	$(MAKE) create-envs
 	$(MAKE) compose-build-detached
+	docker run --rm --network=$(DOCKER_NETWORK) \
+		-v $(shell pwd)/scripts:/scripts alpine sh /scripts/wait_for_db.sh $(DB_HOST) $(DB_PORT)
+	$(MAKE) migrate-up
+
+migrate-up:
+	$(MIGRATE) up
+
+migrate-up-1:
+	$(MIGRATE) up 1
+
+migrate-down:
+	$(MIGRATE) down
+
+migrate-down-1:
+	$(MIGRATE) down 1
 
 compose:
 	docker compose -f $(DOCKER_COMPOSE_FILE) up
@@ -24,4 +45,7 @@ compose-down:
 create-envs:
 	cp .env.example .env
 
-.PHONY: setup compose compose-build compose-build-detached compose-down create-envs
+sqlc:
+	sqlc generate
+
+.PHONY: migrate-up migrate-up-1 migrate-down migrate-down-1 setup compose compose-build compose-build-detached compose-down create-envs sqlc
