@@ -4,8 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/zchelalo/expense-control-back/pkg/bootstrap"
-
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
@@ -18,10 +16,8 @@ import (
 
 type ShutdownFunc func(context.Context) error
 
-func InitTracing(ctx context.Context, serviceName, environment string) (ShutdownFunc, error) {
-	endpoint := bootstrap.GetConfig().OtelExporterOtlpEndpoint
-
-	conn, err := grpc.NewClient(endpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+func InitTracing(ctx context.Context, serviceName, environment, otlpEndpoint string) (ShutdownFunc, error) {
+	conn, err := grpc.NewClient(otlpEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}

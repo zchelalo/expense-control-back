@@ -7,21 +7,23 @@ import (
 )
 
 type Router struct {
-	mux     *http.ServeMux
-	handler *Handler
+	handler       *Handler
+	secureCookies bool
 }
 
-func NewRouter(mux *http.ServeMux, registerUC *register.UseCase, secureCookies bool) *Router {
+func NewRouter(registerUC *register.UseCase, secureCookies bool) *Router {
+	handler := NewHandler(registerUC, secureCookies)
+
 	return &Router{
-		mux:     mux,
-		handler: NewHandler(registerUC, secureCookies),
+		handler:       handler,
+		secureCookies: secureCookies,
 	}
 }
 
-func (r *Router) SetRoutes() {
-	r.mux.Handle("POST /auth/register", http.HandlerFunc(r.handler.Register))
+func (r *Router) Register(mux *http.ServeMux) {
+	mux.Handle("POST /auth/register", http.HandlerFunc(r.handler.Register))
 
-	// r.mux.Handle("POST /auth/login", http.HandlerFunc(r.handler.Login))
-	// r.mux.Handle("POST /auth/refresh", http.HandlerFunc(r.handler.Refresh))
-	// r.mux.Handle("POST /auth/logout", middleware.ApplyMiddlewares(http.HandlerFunc(r.handler.Logout), r.middleware.Auth))
+	// mux.Handle("POST /auth/login", http.HandlerFunc(r.handler.Login))
+	// mux.Handle("POST /auth/refresh", http.HandlerFunc(r.handler.Refresh))
+	// mux.Handle("POST /auth/logout", middleware.ApplyMiddlewares(http.HandlerFunc(r.handler.Logout), r.middleware.Auth))
 }

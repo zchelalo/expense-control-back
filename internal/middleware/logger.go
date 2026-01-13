@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/zchelalo/expense-control-back/pkg/bootstrap"
 	"github.com/zchelalo/expense-control-back/pkg/observability"
 	"go.uber.org/zap"
 )
@@ -12,12 +11,12 @@ import (
 type ctxKeyLogger struct{}
 
 func LoggerFrom(ctx context.Context) *zap.Logger {
-  if v := ctx.Value(ctxKeyLogger{}); v != nil {
-    if l, ok := v.(*zap.Logger); ok {
-      return l
-    }
-  }
-  return bootstrap.GetLogger()
+	if v := ctx.Value(ctxKeyLogger{}); v != nil {
+		if l, ok := v.(*zap.Logger); ok {
+			return l
+		}
+	}
+	return zap.NewNop()
 }
 
 func (m *Middleware) InjectLogger(next http.Handler) http.Handler {

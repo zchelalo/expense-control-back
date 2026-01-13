@@ -2,15 +2,12 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/zchelalo/expense-control-back/internal/middleware"
-	"github.com/zchelalo/expense-control-back/internal/server"
 	"github.com/zchelalo/expense-control-back/pkg/bootstrap"
 	"github.com/zchelalo/expense-control-back/pkg/observability"
 	"go.uber.org/zap"
@@ -25,24 +22,21 @@ func main() {
 	log := bootstrap.GetLogger()
 	defer bootstrap.SyncLogger()
 
-	shutdownTracing, err := observability.InitTracing(context.Background(), cfg.ServiceName, cfg.Environment)
+	shutdownTracing, err := observability.InitTracing(context.Background(), cfg.ServiceName, cfg.Environment, cfg.OtelExporterOtlpEndpoint)
 	if err != nil {
 		log.Fatal("cannot init tracing", zap.Error(err))
 	}
 	defer shutdownTracing(context.Background())
 
-	mdw := middleware.New(log, cfg.AllowedOrigins)
-	address := fmt.Sprintf("0.0.0.0:%d", cfg.Port)
-
-	s, err := server.New(address, mdw)
+	app, err := bootstrap.InitApp(log, cfg)
 	if err != nil {
-		log.Fatal("cannot create server", zap.Error(err))
+		log.Fatal("cannot initialize application", zap.Error(err))
 	}
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Info("server starting", zap.String("addr", address))
-		if err := s.Start(); err != nil && err != http.ErrServerClosed {
+		log.Info("server starting")
+		if err := app.Server.Start(); err != nil && err != http.ErrServerClosed {
 			errCh <- err
 		}
 	}()
@@ -60,8 +54,6 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := s.Shutdown(ctx); err != nil {
-		log.Error("shutdown failed", zap.Error(err))
-	}
+	_ = app.Cleanup(ctx)
 	log.Info("shutdown complete")
 }

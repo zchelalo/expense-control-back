@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/knadh/koanf/parsers/dotenv"
 	"github.com/knadh/koanf/providers/confmap"
@@ -24,14 +25,26 @@ type Config struct {
 	Environment 										  string
 	ServiceName											  string
 	Port                              int
+
 	DBHost                            string
 	DBUser                            string
 	DBPass                            string
 	DBName                            string
 	DBPort                            int
+
 	PaginatorLimitDefault             int
+
 	AllowedOrigins                    string
+
 	OtelExporterOtlpEndpoint 				  string
+
+	AccessTokenTTL  									time.Duration
+	RefreshTokenTTL 									time.Duration
+
+	JWTAccessPrivateKeyPath   				string
+	JWTAccessPublicKeyPath    				string
+	JWTRefreshPrivateKeyPath  				string
+	JWTRefreshPublicKeyPath   				string
 }
 
 func LoadConfig(dotenvPath string) (Config, error) {
@@ -40,8 +53,13 @@ func LoadConfig(dotenvPath string) (Config, error) {
 			"ENVIRONMENT": "development",
 			"SERVICE_NAME": "expense-control-back",
 			"PORT": 8000,
+
 			"PAGINATOR_LIMIT_DEFAULT": 10,
+
 			"OTEL_EXPORTER_OTLP_ENDPOINT": "expense-control-otel-collector:4317",
+
+			"ACCESS_TOKEN_TTL":  "15m",
+			"REFRESH_TOKEN_TTL": "720h",
 		}, "."), nil)
 		if loadErr != nil { return }
 
@@ -70,6 +88,10 @@ func LoadConfig(dotenvPath string) (Config, error) {
 			"DB_NAME",
 			"DB_PORT",
 			"ALLOWED_ORIGINS",
+			"JWT_ACCESS_PRIVATE_KEY_PATH",
+			"JWT_ACCESS_PUBLIC_KEY_PATH",
+			"JWT_REFRESH_PRIVATE_KEY_PATH",
+			"JWT_REFRESH_PUBLIC_KEY_PATH",
 		}
 
 		for _, key := range shouldExistKeys {
@@ -97,6 +119,50 @@ func LoadConfig(dotenvPath string) (Config, error) {
 			return
 		}
 
+		accessTTLStr := k.String("ACCESS_TOKEN_TTL")
+		accessTTL, err := time.ParseDuration(accessTTLStr)
+		if err != nil || accessTTL <= 0 {
+			loadErr = fmt.Errorf("ACCESS_TOKEN_TTL must be a valid duration (e.g. 15m)")
+			return
+		}
+
+		refreshTTLStr := k.String("REFRESH_TOKEN_TTL")
+		refreshTTL, err := time.ParseDuration(refreshTTLStr)
+		if err != nil || refreshTTL <= 0 {
+			loadErr = fmt.Errorf("REFRESH_TOKEN_TTL must be a valid duration (e.g. 720h)")
+			return
+		}
+
+		if accessTTL >= refreshTTL {
+			loadErr = fmt.Errorf("ACCESS_TOKEN_TTL must be smaller than REFRESH_TOKEN_TTL")
+			return
+		}
+
+		if accessTTL > time.Hour {
+			loadErr = fmt.Errorf("ACCESS_TOKEN_TTL too large (recommended <= 1h)")
+			return
+		}
+
+		accessPrivateKeyPath := k.String("JWT_ACCESS_PRIVATE_KEY_PATH")
+		if _, err := os.Stat(accessPrivateKeyPath); err != nil {
+			loadErr = fmt.Errorf("JWT_ACCESS_PRIVATE_KEY_PATH invalid: %w", err)
+		}
+
+		accessPublicKeyPath := k.String("JWT_ACCESS_PUBLIC_KEY_PATH")
+		if _, err := os.Stat(accessPublicKeyPath); err != nil {
+			loadErr = fmt.Errorf("JWT_ACCESS_PUBLIC_KEY_PATH invalid: %w", err)
+		}
+
+		refreshPrivateKeyPath := k.String("JWT_REFRESH_PRIVATE_KEY_PATH")
+		if _, err := os.Stat(refreshPrivateKeyPath); err != nil {
+			loadErr = fmt.Errorf("JWT_REFRESH_PRIVATE_KEY_PATH invalid: %w", err)
+		}
+
+		refreshPublicKeyPath := k.String("JWT_REFRESH_PUBLIC_KEY_PATH")
+		if _, err := os.Stat(refreshPublicKeyPath); err != nil {
+			loadErr = fmt.Errorf("JWT_REFRESH_PUBLIC_KEY_PATH invalid: %w", err)
+		}
+
 		config = Config{
 			Environment:           k.String("ENVIRONMENT"),
 			ServiceName:           k.String("SERVICE_NAME"),
@@ -109,6 +175,12 @@ func LoadConfig(dotenvPath string) (Config, error) {
 			PaginatorLimitDefault: paginatorLimitDefault,
 			AllowedOrigins:        k.String("ALLOWED_ORIGINS"),
 			OtelExporterOtlpEndpoint: k.String("OTEL_EXPORTER_OTLP_ENDPOINT"),
+			AccessTokenTTL: accessTTL,
+			RefreshTokenTTL: refreshTTL,
+			JWTAccessPrivateKeyPath:    accessPrivateKeyPath,
+			JWTAccessPublicKeyPath:     accessPublicKeyPath,
+			JWTRefreshPrivateKeyPath:   refreshPrivateKeyPath,
+			JWTRefreshPublicKeyPath:    refreshPublicKeyPath,
 		}
 	})
 	return config, loadErr
