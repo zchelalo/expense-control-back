@@ -1,0 +1,5 @@
+DROP TABLE IF EXISTS movements;
+DROP TABLE IF EXISTS movement_types;
+DROP TABLE IF EXISTS accounts;
+DROP TABLE IF EXISTS auth_sessions;
+DROP TABLE IF EXISTS users;
