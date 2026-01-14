@@ -3,14 +3,14 @@ package middleware
 import "strings"
 
 var excluded = map[string]struct{}{
-	"/metrics": {},
-	"/health":  {},
+  "/api/metrics": {},
+  "/api/health":  {},
 }
 
-func ShouldSkipObservability(path string) bool {
+func ShouldInstrument(path string) bool {
 	if path != "/" {
 		path = strings.TrimSuffix(path, "/")
 	}
-	_, skip := excluded[path]
-	return !skip
+	_, excluded := excluded[path]
+	return !excluded
 }

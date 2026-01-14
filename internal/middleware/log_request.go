@@ -78,7 +78,7 @@ func clientIP(r *http.Request) string {
 
 func (m *Middleware) LogRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if ShouldSkipObservability(r.URL.Path) {
+		if !ShouldInstrument(r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
 		}

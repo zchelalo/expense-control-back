@@ -8,6 +8,7 @@ import (
 	authhttp "github.com/zchelalo/expense-control-back/internal/modules/auth/adapters/http/v1"
 	authpg "github.com/zchelalo/expense-control-back/internal/modules/auth/adapters/persistence/postgres"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/adapters/tokens/jwt"
+	loginuc "github.com/zchelalo/expense-control-back/internal/modules/auth/application/login"
 	registeruc "github.com/zchelalo/expense-control-back/internal/modules/auth/application/register"
 	"github.com/zchelalo/expense-control-back/internal/server"
 	clk "github.com/zchelalo/expense-control-back/internal/shared/clock"
@@ -50,9 +51,10 @@ func InitApp(log *zap.Logger, cfg Config) (*App, error) {
 	credentialsStore := authpg.NewCredentialRepo(db)
 	sessionStore := authpg.NewSessionRepo(db)
 	registerUseCase := registeruc.New(credentialsStore, sessionStore, hasher, issuer, ids, clock, cfg.RefreshTokenTTL)
+	loginUseCase := loginuc.New(credentialsStore, sessionStore, hasher, issuer, ids, clock, cfg.RefreshTokenTTL)
 
 	secureCookies := cfg.Environment == "production"
-	authV1 := authhttp.NewRouter(registerUseCase, secureCookies)
+	authV1 := authhttp.NewRouter(registerUseCase, loginUseCase, secureCookies)
 
 	s, err := server.New(address, mdw, authV1.Register)
 	if err != nil {

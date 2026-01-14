@@ -34,7 +34,7 @@ func New(address string, mdw *middleware.Middleware, routerRegistrations ...func
 	var handler http.Handler = mux
 	handler = otelhttp.NewHandler(handler, "http.server",
 		otelhttp.WithFilter(func(r *http.Request) bool {
-			return !middleware.ShouldSkipObservability(r.URL.Path)
+			return middleware.ShouldInstrument(r.URL.Path)
 		}),
 		otelhttp.WithSpanNameFormatter(func(operation string, r *http.Request) string {
 			path := r.URL.Path

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/zchelalo/expense-control-back/internal/modules/auth/application/login"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/application/register"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/domain"
 	"github.com/zchelalo/expense-control-back/pkg/response"
@@ -14,6 +15,14 @@ func mapError(err error) (int, response.APIError) {
 	if errors.Is(err, register.ErrEmailAlreadyExists) {
 		return http.StatusConflict, response.APIError{
 			Code:    "email_already_exists",
+			Message: err.Error(),
+		}
+	}
+
+	// Login errors
+	if errors.Is(err, login.ErrInvalidCredentials) {
+		return http.StatusUnauthorized, response.APIError{
+			Code:    "invalid_credentials",
 			Message: err.Error(),
 		}
 	}

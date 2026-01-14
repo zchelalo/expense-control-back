@@ -7,16 +7,16 @@ import (
 	"time"
 
 	"github.com/zchelalo/expense-control-back/internal/middleware"
-	"github.com/zchelalo/expense-control-back/internal/modules/auth/application/register"
+	"github.com/zchelalo/expense-control-back/internal/modules/auth/application/login"
 	"github.com/zchelalo/expense-control-back/pkg/response"
 )
 
-type registerRequest struct {
+type loginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
-type registerResponse struct {
+type loginResponse struct {
 	SubjectID     string `json:"subject_id"`
 	AccessToken   string `json:"access_token"`
 	AccessExpires string `json:"access_expires_at"`
@@ -25,10 +25,10 @@ type registerResponse struct {
 	RefreshExpires string `json:"refresh_expires_at,omitempty"`
 }
 
-func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	rid := middleware.RequestIDFrom(r.Context())
 
-	var req registerRequest
+	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.WriteError(w, http.StatusBadRequest, response.APIError{
 			Code:    "invalid_json",
@@ -45,7 +45,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := h.registerUC.Execute(r.Context(), register.Command{
+	res, err := h.loginUC.Execute(r.Context(), login.Command{
 		Email:    req.Email,
 		Password: req.Password,
 	})
@@ -58,7 +58,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	mode := strings.ToLower(strings.TrimSpace(r.Header.Get(HeaderAuthMode)))
 	isMobile := mode == AuthModeMobile
 
-	resp := registerResponse{
+	resp := loginResponse{
 		SubjectID:     res.SubjectID,
 		AccessToken:   res.AccessToken,
 		AccessExpires: res.AccessExpires.UTC().Format(time.RFC3339),
@@ -80,5 +80,5 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	response.WriteJSON(w, http.StatusCreated, resp, nil, rid)
+	response.WriteJSON(w, http.StatusOK, resp, nil, rid)
 }

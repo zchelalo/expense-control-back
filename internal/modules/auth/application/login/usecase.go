@@ -1,8 +1,7 @@
-package register
+package login
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/domain"
@@ -57,47 +56,19 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 		return Result{}, err
 	}
 
-	// Check if email already exists
-	_, err = uc.store.ByEmail(ctx, email)
-	if err == nil {
-		return Result{}, ErrEmailAlreadyExists
+	// Retrieve credential by email
+	cred, err := uc.store.ByEmail(ctx, email)
+	if err != nil {
+		return Result{}, ErrInvalidCredentials
 	}
 
-	// Hash password and create password hash
-	hash, err := uc.hasher.Hash(ctx, cmd.Password)
-	if err != nil {
-		return Result{}, err
-	}
-	passHash, err := domain.NewPasswordHashFromHash(hash)
-	if err != nil {
-		return Result{}, err
-	}
-
-	// Generate new subject ID
-	sub, err := domain.NewSubjectID(uc.ids.NewUUID())
-	if err != nil {
-		return Result{}, err
+	// Compare password
+	if err := uc.hasher.Compare(ctx, cmd.Password, cred.PasswordHash().String()); err != nil {
+    return Result{}, ErrInvalidCredentials
 	}
 
 	// Get current time
 	now := uc.clock.Now()
-
-	// Create account
-	account := domain.NewAccount(sub, email, passHash, now)
-
-	// Store account
-	createdSub, err := uc.store.CreateAccount(ctx, account)
-	if err != nil {
-		// Handle already exists error
-    var exists ports.ErrAlreadyExists
-    if errors.As(err, &exists) {
-			switch exists.Name {
-			case "email":
-				return Result{}, ErrEmailAlreadyExists
-			}
-    }
-    return Result{}, err
-	}
 
 	// Create session ID and refresh token ID
 	sessID, _ := domain.NewSessionID(uc.ids.NewUUID())
@@ -107,7 +78,7 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 	refreshExp := now.Add(uc.refreshTTL)
 
 	// Create session
-	sess, err := domain.NewSession(sessID, createdSub, refreshID, now, refreshExp)
+	sess, err := domain.NewSession(sessID, cred.ID(), refreshID, now, refreshExp)
 	if err != nil {
 		return Result{}, err
 	}
@@ -118,20 +89,20 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 	}
 
 	// Issue tokens
-	accessToken, accessTokenExp, err := uc.issuer.IssueAccess(ctx, createdSub)
+	accessToken, accessTokenExp, err := uc.issuer.IssueAccess(ctx, cred.ID())
 	if err != nil {
 		return Result{}, err
 	}
-	refreshToken, refreshTokenExp, err := uc.issuer.IssueRefresh(ctx, sessID, createdSub, refreshID)
+	refreshToken, refreshTokenExp, err := uc.issuer.IssueRefresh(ctx, sessID, cred.ID(), refreshID)
 	if err != nil {
 		return Result{}, err
 	}
 
 	return Result{
-		SubjectID:      createdSub.String(),
-		AccessToken:    accessToken,
-		AccessExpires:  accessTokenExp,
-		RefreshToken:   refreshToken,
+		SubjectID:     cred.ID().String(),
+		AccessToken:   accessToken,
+		AccessExpires: accessTokenExp,
+		RefreshToken:  refreshToken,
 		RefreshExpires: refreshTokenExp,
 	}, nil
 }
