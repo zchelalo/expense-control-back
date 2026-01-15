@@ -26,9 +26,7 @@ func (m *Middleware) Auth(next http.Handler) http.Handler {
 
 		token := extractAccessToken(r, isMobile)
 		if token == "" {
-			if m.Log != nil {
-				m.Log.Warn("missing access token")
-			}
+			m.Log.Warn("missing access token")
 			response.WriteError(w, http.StatusUnauthorized, response.APIError{
 				Code:    "missing_access_token",
 				Message: "missing access token",
@@ -38,9 +36,7 @@ func (m *Middleware) Auth(next http.Handler) http.Handler {
 
 		claims, err := m.Verifier.VerifyAccess(r.Context(), token)
 		if err != nil {
-			if m.Log != nil {
-				m.Log.Warn("invalid access token", zap.Error(err))
-			}
+			m.Log.Warn("invalid access token", zap.Error(err))
 			response.WriteError(w, http.StatusUnauthorized, response.APIError{
 				Code:    "invalid_access_token",
 				Message: "invalid access token",
