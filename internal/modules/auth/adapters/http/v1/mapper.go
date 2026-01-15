@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/application/login"
+	"github.com/zchelalo/expense-control-back/internal/modules/auth/application/logout"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/application/register"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/domain"
 	"github.com/zchelalo/expense-control-back/pkg/response"
@@ -23,6 +24,32 @@ func mapError(err error) (int, response.APIError) {
 	if errors.Is(err, login.ErrInvalidCredentials) {
 		return http.StatusUnauthorized, response.APIError{
 			Code:    "invalid_credentials",
+			Message: err.Error(),
+		}
+	}
+
+	// Logout errors
+	if errors.Is(err, logout.ErrSessionNotFound) {
+		return http.StatusUnauthorized, response.APIError{
+			Code:    "session_not_found",
+			Message: err.Error(),
+		}
+	}
+	if errors.Is(err, logout.ErrSessionAlreadyRevoked) {
+		return http.StatusUnauthorized, response.APIError{
+			Code:    "session_already_revoked",
+			Message: err.Error(),
+		}
+	}
+	if errors.Is(err, logout.ErrMissingRefreshToken) {
+		return http.StatusUnauthorized, response.APIError{
+			Code:    "missing_refresh_token",
+			Message: err.Error(),
+		}
+	}
+	if errors.Is(err, logout.ErrForbidden) {
+		return http.StatusForbidden, response.APIError{
+			Code:    "forbidden",
 			Message: err.Error(),
 		}
 	}

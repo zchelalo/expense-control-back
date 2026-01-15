@@ -20,6 +20,48 @@ func NewVerifier(keys *Keys, issuer string) *Verifier {
 	return &Verifier{keys: keys, issuer: issuer}
 }
 
+func (v *Verifier) VerifyAccess(_ context.Context, token string) (ports.AccessClaims, error) {
+	parsed, err := jwtlib.ParseWithClaims(token, &AccessClaims{}, func(t *jwtlib.Token) (any, error) {
+		if _, ok := t.Method.(*jwtlib.SigningMethodRSA); !ok {
+			return nil, ports.ErrTokenInvalid{Name: "access"}
+		}
+		return v.keys.AccessPublic, nil
+	},
+		jwtlib.WithValidMethods([]string{jwtlib.SigningMethodRS256.Alg()}),
+		jwtlib.WithIssuer(v.issuer),
+	)
+	if err != nil {
+		if errors.Is(err, jwtlib.ErrTokenExpired) {
+			return ports.AccessClaims{}, ports.ErrTokenExpired{Name: "access"}
+		}
+		return ports.AccessClaims{}, ports.ErrTokenInvalid{Name: "access"}
+	}
+
+	c, ok := parsed.Claims.(*AccessClaims)
+	if !ok || !parsed.Valid {
+		return ports.AccessClaims{}, ports.ErrTokenInvalid{Name: "access"}
+	}
+
+	parsedSub, err := uuid.Parse(c.Sub)
+	if err != nil {
+		return ports.AccessClaims{}, ports.ErrTokenInvalid{Name: "access"}
+	}
+	sub, err := domain.NewSubjectID(parsedSub)
+	if err != nil {
+		return ports.AccessClaims{}, ports.ErrTokenInvalid{Name: "access"}
+	}
+
+	var exp time.Time
+	if c.ExpiresAt != nil {
+		exp = c.ExpiresAt.Time
+	}
+
+	return ports.AccessClaims{
+		SubjectID: sub,
+		ExpiresAt: exp,
+	}, nil
+}
+
 func (v *Verifier) VerifyRefresh(_ context.Context, token string) (ports.RefreshClaims, error) {
 	parsed, err := jwtlib.ParseWithClaims(token, &RefreshClaims{}, func(t *jwtlib.Token) (any, error) {
 		if _, ok := t.Method.(*jwtlib.SigningMethodRSA); !ok {

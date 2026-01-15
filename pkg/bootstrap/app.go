@@ -9,6 +9,7 @@ import (
 	authpg "github.com/zchelalo/expense-control-back/internal/modules/auth/adapters/persistence/postgres"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/adapters/tokens/jwt"
 	loginuc "github.com/zchelalo/expense-control-back/internal/modules/auth/application/login"
+	logoutuc "github.com/zchelalo/expense-control-back/internal/modules/auth/application/logout"
 	registeruc "github.com/zchelalo/expense-control-back/internal/modules/auth/application/register"
 	"github.com/zchelalo/expense-control-back/internal/server"
 	clk "github.com/zchelalo/expense-control-back/internal/shared/clock"
@@ -23,15 +24,10 @@ type App struct {
 }
 
 func InitApp(log *zap.Logger, cfg Config) (*App, error) {
-	mdw := middleware.New(log, cfg.AllowedOrigins)
-	address := fmt.Sprintf("0.0.0.0:%d", cfg.Port)
-
 	db, err := InitDB(context.Background(), cfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot init db: %w", err)
 	}
-
-	hasher := bcrypthasher.NewBcryptPasswordHasher(12)
 
 	keys, err := jwt.LoadKeys(jwt.KeyPaths{
 		AccessPrivatePath: cfg.JWTAccessPrivateKeyPath,
@@ -46,15 +42,24 @@ func InitApp(log *zap.Logger, cfg Config) (*App, error) {
 
 	clock := clk.New()
 	issuer := jwt.NewIssuer(keys, clock, cfg.ServiceName, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
+	verifier := jwt.NewVerifier(keys, cfg.ServiceName)
+
+	mdw := middleware.New(log, cfg.AllowedOrigins, verifier)
+	address := fmt.Sprintf("0.0.0.0:%d", cfg.Port)
+
+	hasher := bcrypthasher.NewBcryptPasswordHasher(12)
+
 	ids := uuidgenerator.NewGenerator()
 
 	credentialsStore := authpg.NewCredentialRepo(db)
 	sessionStore := authpg.NewSessionRepo(db)
+
 	registerUseCase := registeruc.New(credentialsStore, sessionStore, hasher, issuer, ids, clock, cfg.RefreshTokenTTL)
 	loginUseCase := loginuc.New(credentialsStore, sessionStore, hasher, issuer, ids, clock, cfg.RefreshTokenTTL)
+	logoutUseCase := logoutuc.New(verifier, sessionStore, clock)
 
 	secureCookies := cfg.Environment == "production"
-	authV1 := authhttp.NewRouter(registerUseCase, loginUseCase, secureCookies)
+	authV1 := authhttp.NewRouter(registerUseCase, loginUseCase, logoutUseCase, secureCookies, mdw)
 
 	s, err := server.New(address, mdw, authV1.Register)
 	if err != nil {

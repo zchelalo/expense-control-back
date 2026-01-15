@@ -55,8 +55,8 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mode := strings.ToLower(strings.TrimSpace(r.Header.Get(HeaderAuthMode)))
-	isMobile := mode == AuthModeMobile
+	mode := strings.ToLower(strings.TrimSpace(r.Header.Get(middleware.HeaderAuthMode)))
+	isMobile := mode == middleware.AuthModeMobile
 
 	resp := registerResponse{
 		SubjectID:     res.SubjectID,
@@ -71,7 +71,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		http.SetCookie(w, &http.Cookie{
 			Name:     CookieRefreshToken,
 			Value:    res.RefreshToken,
-			Path:     RefreshPath,
+			Path:     AuthCookiePath,
 			HttpOnly: true,
 			Secure:   h.secureCookies,
 			SameSite: http.SameSiteLaxMode,
