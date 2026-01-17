@@ -106,8 +106,13 @@ func (r *SessionRepo) ByID(ctx context.Context, id domain.SessionID) (domain.Ses
 	), nil
 }
 
-func (r *SessionRepo) RotateRefresh(ctx context.Context, sessionID domain.SessionID, newRefreshID domain.RefreshTokenID, newExp time.Time) error {
-	err := r.q.RotateSessionRefreshID(ctx, authdb.RotateSessionRefreshIDParams{
+func (r *SessionRepo) ValidateAndRotateRefresh(ctx context.Context,
+	sessionID domain.SessionID,
+	expectedCurrent domain.RefreshTokenID,
+	newRefreshID domain.RefreshTokenID,
+	newExp time.Time,
+) (bool, error) {
+	rows, err := r.q.RotateSessionRefreshID(ctx, authdb.RotateSessionRefreshIDParams{
 		ID: pgtype.UUID{
 			Bytes: sessionID.UUID(),
 			Valid: true,
@@ -120,18 +125,34 @@ func (r *SessionRepo) RotateRefresh(ctx context.Context, sessionID domain.Sessio
 			Time: newExp,
 			Valid: true,
 		},
+		RefreshJti_2: pgtype.UUID{
+			Bytes: expectedCurrent.UUID(),
+			Valid: true,
+		},
 	})
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			if pgErr.ConstraintName == "auth_sessions_refresh_jti_key" {
-				return ports.ErrAlreadyExists{Name: "refresh jti"}
+				return false, ports.ErrAlreadyExists{Name: "refresh jti"}
 			}
 		}
-		return err
+		return false, err
 	}
 
-	return nil
+	if rows == 1 {
+		return true, nil
+	}
+
+	_, err = r.q.GetSessionByID(ctx, pgtype.UUID{Bytes: sessionID.UUID(), Valid: true})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return false, ports.ErrSessionRefreshMismatch
 }
 
 func (r *SessionRepo) Revoke(ctx context.Context, sessionID domain.SessionID, now time.Time) error {

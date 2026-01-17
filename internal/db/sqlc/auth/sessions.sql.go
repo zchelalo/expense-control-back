@@ -98,22 +98,32 @@ func (q *Queries) RevokeSession(ctx context.Context, arg RevokeSessionParams) er
 	return err
 }
 
-const rotateSessionRefreshID = `-- name: RotateSessionRefreshID :exec
+const rotateSessionRefreshID = `-- name: RotateSessionRefreshID :execrows
 UPDATE auth_sessions
 SET
   refresh_jti = $2,
   expires_at = $3
 WHERE id = $1
+AND refresh_jti = $4
 AND revoked_at IS NULL
 `
 
 type RotateSessionRefreshIDParams struct {
-	ID         pgtype.UUID        `json:"id"`
-	RefreshJti pgtype.UUID        `json:"refresh_jti"`
-	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	ID           pgtype.UUID        `json:"id"`
+	RefreshJti   pgtype.UUID        `json:"refresh_jti"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+	RefreshJti_2 pgtype.UUID        `json:"refresh_jti_2"`
 }
 
-func (q *Queries) RotateSessionRefreshID(ctx context.Context, arg RotateSessionRefreshIDParams) error {
-	_, err := q.db.Exec(ctx, rotateSessionRefreshID, arg.ID, arg.RefreshJti, arg.ExpiresAt)
-	return err
+func (q *Queries) RotateSessionRefreshID(ctx context.Context, arg RotateSessionRefreshIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, rotateSessionRefreshID,
+		arg.ID,
+		arg.RefreshJti,
+		arg.ExpiresAt,
+		arg.RefreshJti_2,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

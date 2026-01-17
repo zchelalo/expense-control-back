@@ -10,6 +10,11 @@ import (
 type SessionRepository interface {
 	Create(ctx context.Context, s domain.Session) error
 	ByID(ctx context.Context, id domain.SessionID) (domain.Session, error)
-	RotateRefresh(ctx context.Context, sessionID domain.SessionID, newRefreshID domain.RefreshTokenID, newExp time.Time) error
+	ValidateAndRotateRefresh(ctx context.Context,
+    sessionID domain.SessionID,
+    expectedCurrent domain.RefreshTokenID,
+    newRefreshID domain.RefreshTokenID,
+    newExp time.Time,
+	) (ok bool, err error)
 	Revoke(ctx context.Context, sessionID domain.SessionID, now time.Time) error
 }

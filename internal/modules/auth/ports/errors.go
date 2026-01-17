@@ -1,6 +1,9 @@
 package ports
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 type ErrAlreadyExists struct {
 	Name string
@@ -33,3 +36,21 @@ type ErrTokenExpired struct{
 func (e ErrTokenExpired) Error() string {
 	return fmt.Sprintf("%s token has expired", e.Name)
 }
+
+type ErrTokenSignatureInvalid struct{
+	Name string
+}
+
+func (e ErrTokenSignatureInvalid) Error() string {
+	return fmt.Sprintf("%s token has invalid signature", e.Name)
+}
+
+type ErrTokenMalformed struct{
+	Name string
+}
+
+func (e ErrTokenMalformed) Error() string {
+	return fmt.Sprintf("%s token is malformed", e.Name)
+}
+
+var ErrSessionRefreshMismatch = errors.New("session refresh mismatch")

@@ -6,8 +6,10 @@ import (
 
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/application/login"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/application/logout"
+	"github.com/zchelalo/expense-control-back/internal/modules/auth/application/refresh"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/application/register"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/domain"
+	"github.com/zchelalo/expense-control-back/internal/modules/auth/ports"
 	"github.com/zchelalo/expense-control-back/pkg/response"
 )
 
@@ -50,6 +52,34 @@ func mapError(err error) (int, response.APIError) {
 	if errors.Is(err, logout.ErrForbidden) {
 		return http.StatusForbidden, response.APIError{
 			Code:    "forbidden",
+			Message: err.Error(),
+		}
+	}
+
+	// Refresh errors
+	if errors.Is(err, refresh.ErrSessionNotFound) {
+		return http.StatusUnauthorized, response.APIError{
+			Code:    "session_not_found",
+			Message: err.Error(),
+		}
+	}
+	if errors.Is(err, refresh.ErrSessionRevoked) {
+		return http.StatusUnauthorized, response.APIError{
+			Code:    "session_revoked",
+			Message: err.Error(),
+		}
+	}
+	if errors.Is(err, refresh.ErrMissingRefreshToken) {
+		return http.StatusUnauthorized, response.APIError{
+			Code:    "missing_refresh_token",
+			Message: err.Error(),
+		}
+	}
+
+	// Ports errors
+	if errors.As(err, &ports.ErrTokenInvalid{}) {
+		return http.StatusUnauthorized, response.APIError{
+			Code:    "token_invalid",
 			Message: err.Error(),
 		}
 	}

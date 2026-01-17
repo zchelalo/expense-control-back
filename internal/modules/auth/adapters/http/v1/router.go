@@ -6,6 +6,7 @@ import (
 	"github.com/zchelalo/expense-control-back/internal/middleware"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/application/login"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/application/logout"
+	"github.com/zchelalo/expense-control-back/internal/modules/auth/application/refresh"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/application/register"
 )
 
@@ -15,8 +16,20 @@ type Router struct {
 	middleware		*middleware.Middleware
 }
 
-func NewRouter(registerUC *register.UseCase, loginUC *login.UseCase, logoutUC *logout.UseCase, secureCookies bool, middleware *middleware.Middleware) *Router {
-	handler := NewHandler(registerUC, loginUC, logoutUC, secureCookies)
+func NewRouter(
+	registerUC *register.UseCase,
+	loginUC *login.UseCase,
+	logoutUC *logout.UseCase,
+	refreshUC *refresh.UseCase,
+	secureCookies bool,
+	middleware *middleware.Middleware) *Router {
+	handler := NewHandler(
+		registerUC,
+		loginUC,
+		logoutUC,
+		refreshUC,
+		secureCookies,
+	)
 
 	return &Router{
 		handler:       handler,
@@ -29,6 +42,5 @@ func (r *Router) Register(mux *http.ServeMux) {
 	mux.Handle("POST /v1/auth/register", http.HandlerFunc(r.handler.Register))
 	mux.Handle("POST /v1/auth/login", http.HandlerFunc(r.handler.Login))
 	mux.Handle("POST /v1/auth/logout", middleware.ApplyMiddlewares(http.HandlerFunc(r.handler.Logout), r.middleware.Auth))
-
-	// mux.Handle("POST /v1/auth/refresh", http.HandlerFunc(r.handler.Refresh))
+	mux.Handle("POST /v1/auth/refresh", http.HandlerFunc(r.handler.Refresh))
 }

@@ -23,12 +23,13 @@ WHERE id = $1
 AND revoked_at IS NULL
 ;
 
--- name: RotateSessionRefreshID :exec
+-- name: RotateSessionRefreshID :execrows
 UPDATE auth_sessions
 SET
   refresh_jti = $2,
   expires_at = $3
 WHERE id = $1
+AND refresh_jti = $4
 AND revoked_at IS NULL
 ;
 

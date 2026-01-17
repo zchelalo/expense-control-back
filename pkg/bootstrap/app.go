@@ -10,6 +10,7 @@ import (
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/adapters/tokens/jwt"
 	loginuc "github.com/zchelalo/expense-control-back/internal/modules/auth/application/login"
 	logoutuc "github.com/zchelalo/expense-control-back/internal/modules/auth/application/logout"
+	refreshuc "github.com/zchelalo/expense-control-back/internal/modules/auth/application/refresh"
 	registeruc "github.com/zchelalo/expense-control-back/internal/modules/auth/application/register"
 	"github.com/zchelalo/expense-control-back/internal/server"
 	clk "github.com/zchelalo/expense-control-back/internal/shared/clock"
@@ -57,9 +58,10 @@ func InitApp(log *zap.Logger, cfg Config) (*App, error) {
 	registerUseCase := registeruc.New(credentialsStore, sessionStore, hasher, issuer, ids, clock, cfg.RefreshTokenTTL)
 	loginUseCase := loginuc.New(credentialsStore, sessionStore, hasher, issuer, ids, clock, cfg.RefreshTokenTTL)
 	logoutUseCase := logoutuc.New(verifier, sessionStore, clock)
+	refreshUseCase := refreshuc.New(verifier, issuer, sessionStore, ids, clock, cfg.RefreshTokenTTL)
 
 	secureCookies := cfg.Environment == "production"
-	authV1 := authhttp.NewRouter(registerUseCase, loginUseCase, logoutUseCase, secureCookies, mdw)
+	authV1 := authhttp.NewRouter(registerUseCase, loginUseCase, logoutUseCase, refreshUseCase, secureCookies, mdw)
 
 	s, err := server.New(address, mdw, authV1.Register)
 	if err != nil {
