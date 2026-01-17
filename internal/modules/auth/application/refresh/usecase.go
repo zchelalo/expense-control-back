@@ -69,7 +69,7 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 		log.Warn("refresh verification failed",
 			zap.String("stage", "verify_refresh"),
 			zap.String("kind", kind),
-			zap.String("token_fp", fp),
+			zap.String("refresh_token_fp", fp),
 			zap.Error(err),
 		)
 
@@ -80,7 +80,7 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 		zap.String("stage", "verify_refresh_ok"),
 		zap.String("subject_id", claims.SubjectID.String()),
 		zap.String("session_id", claims.SessionID.String()),
-		zap.String("token_fp", fp),
+		zap.String("refresh_token_fp", fp),
 	)
 
 	now := uc.clock.Now()
@@ -117,26 +117,24 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 		return Result{}, err
 	}
 
-	res := Result{
-		SubjectID:      claims.SubjectID.String(),
-		AccessToken:    accessToken,
-		AccessExpires:  accessTokenExp,
-		RefreshToken:   newRefreshToken,
-		RefreshExpires: newRefreshTokenExp,
-	}
-
 	log.Info("refresh finished",
 		zap.String("stage", "done"),
 		zap.String("subject_id", claims.SubjectID.String()),
 		zap.String("session_id", claims.SessionID.String()),
-		zap.String("token_fp", fp),
+		zap.String("refresh_token_fp", fp),
 		zap.Bool("rotated", true),
 		zap.Time("access_exp", accessTokenExp),
 		zap.Time("new_refresh_exp", newRefreshTokenExp),
 		zap.Time("now", now),
 	)
 
-	return res, nil
+	return Result{
+		SubjectID:      claims.SubjectID.String(),
+		AccessToken:    accessToken,
+		AccessExpires:  accessTokenExp,
+		RefreshToken:   newRefreshToken,
+		RefreshExpires: newRefreshTokenExp,
+	}, nil
 }
 
 func (uc *UseCase) rotateRefreshToken(
@@ -172,7 +170,7 @@ func (uc *UseCase) rotateRefreshToken(
 				zap.Bool("security_event", true),
 				zap.String("session_id", sessionID.String()),
 				zap.String("subject_id", subjectID.String()),
-				zap.String("token_fp", tokenFP),
+				zap.String("refresh_token_fp", tokenFP),
 			)
 
 			if rerr := uc.sessions.Revoke(ctx, sessionID, now); rerr != nil {
@@ -203,7 +201,7 @@ func (uc *UseCase) rotateRefreshToken(
 			zap.String("stage", "session_invalid"),
 			zap.String("session_id", sessionID.String()),
 			zap.String("subject_id", subjectID.String()),
-			zap.String("token_fp", tokenFP),
+			zap.String("refresh_token_fp", tokenFP),
     )
 
 		return "", time.Time{}, ports.ErrTokenInvalid{Name: "refresh"}
