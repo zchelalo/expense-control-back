@@ -21,6 +21,7 @@ SELECT
 FROM auth_sessions
 WHERE id = $1
 AND revoked_at IS NULL
+AND expires_at > NOW()
 ;
 
 -- name: RotateSessionRefreshID :execrows
@@ -31,6 +32,7 @@ SET
 WHERE id = $1
 AND refresh_jti = $4
 AND revoked_at IS NULL
+AND expires_at > NOW()
 ;
 
 -- name: RevokeSession :exec

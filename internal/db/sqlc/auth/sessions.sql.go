@@ -55,6 +55,7 @@ SELECT
 FROM auth_sessions
 WHERE id = $1
 AND revoked_at IS NULL
+AND expires_at > NOW()
 `
 
 type GetSessionByIDRow struct {
@@ -106,6 +107,7 @@ SET
 WHERE id = $1
 AND refresh_jti = $4
 AND revoked_at IS NULL
+AND expires_at > NOW()
 `
 
 type RotateSessionRefreshIDParams struct {
