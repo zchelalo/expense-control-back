@@ -34,6 +34,9 @@ migrate-down-1:
 compose:
 	docker compose -f $(DOCKER_COMPOSE_FILE) up
 
+compose-detached:
+	docker compose -f $(DOCKER_COMPOSE_FILE) up -d
+
 compose-build:
 	docker compose -f $(DOCKER_COMPOSE_FILE) up --build
 
@@ -52,4 +55,4 @@ create-keys:
 sqlc:
 	sqlc generate
 
-.PHONY: migrate-up migrate-up-1 migrate-down migrate-down-1 setup compose compose-build compose-build-detached compose-down create-envs create-keys sqlc
+.PHONY: migrate-up migrate-up-1 migrate-down migrate-down-1 setup compose compose-detached compose-build compose-build-detached compose-down create-envs create-keys sqlc
