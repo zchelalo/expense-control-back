@@ -13,6 +13,7 @@ MIGRATE = docker run -v $(shell pwd)/internal/db/migrations:/migrations --networ
 
 setup:
 	$(MAKE) create-envs
+	$(MAKE) create-keys
 	$(MAKE) compose-build-detached
 	docker run --rm --network=$(DOCKER_NETWORK) \
 		-v $(shell pwd)/scripts:/scripts alpine sh /scripts/wait_for_db.sh $(DB_HOST) $(DB_PORT)
