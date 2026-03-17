@@ -16,6 +16,7 @@ var subjectIDKey = ctxSubjectID{}
 const HeaderAuthMode = "X-Auth-Mode"
 const AuthModeMobile = "mobile"
 const HeaderAccessToken = "X-Access-Token"
+const CookieAccessToken = "access_token"
 
 func (m *Middleware) Auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -53,6 +54,12 @@ func extractAccessToken(r *http.Request, isMobile bool) string {
 	if isMobile {
 		if t := strings.TrimSpace(r.Header.Get(HeaderAccessToken)); t != "" {
 			return StripBearer(t)
+		}
+	}
+
+	if !isMobile {
+		if cookie, err := r.Cookie(CookieAccessToken); err == nil {
+			return strings.TrimSpace(cookie.Value)
 		}
 	}
 

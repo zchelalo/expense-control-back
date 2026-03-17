@@ -85,10 +85,20 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 
 	if !isMobile {
 		http.SetCookie(w, &http.Cookie{
+			Name:     CookieAccessToken,
+			Value:    "",
+			Path:     AccessCookiePath,
+			MaxAge:   -1,
+			HttpOnly: true,
+			Secure:   h.secureCookies,
+			SameSite: http.SameSiteLaxMode,
+		})
+
+		http.SetCookie(w, &http.Cookie{
 			Name:     CookieRefreshToken,
 			Value:    "",
-			Path:     AuthCookiePath,
-			MaxAge: -1,
+			Path:     RefreshCookiePath,
+			MaxAge:   -1,
 			HttpOnly: true,
 			Secure:   h.secureCookies,
 			SameSite: http.SameSiteLaxMode,

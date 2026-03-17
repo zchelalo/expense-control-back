@@ -18,8 +18,8 @@ type registerRequest struct {
 
 type registerResponse struct {
 	SubjectID     string `json:"subject_id"`
-	AccessToken   string `json:"access_token"`
-	AccessExpires string `json:"access_expires_at"`
+	AccessToken   string `json:"access_token,omitempty"`
+	AccessExpires string `json:"access_expires_at,omitempty"`
 
 	RefreshToken   string `json:"refresh_token,omitempty"`
 	RefreshExpires string `json:"refresh_expires_at,omitempty"`
@@ -59,19 +59,30 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	isMobile := mode == middleware.AuthModeMobile
 
 	resp := registerResponse{
-		SubjectID:     res.SubjectID,
-		AccessToken:   res.AccessToken,
-		AccessExpires: res.AccessExpires.UTC().Format(time.RFC3339),
+		SubjectID: res.SubjectID,
 	}
 
 	if isMobile {
+		resp.AccessToken = res.AccessToken
+		resp.AccessExpires = res.AccessExpires.UTC().Format(time.RFC3339)
 		resp.RefreshToken = res.RefreshToken
 		resp.RefreshExpires = res.RefreshExpires.UTC().Format(time.RFC3339)
 	} else {
 		http.SetCookie(w, &http.Cookie{
+			Name:     CookieAccessToken,
+			Value:    res.AccessToken,
+			Path:     AccessCookiePath,
+			HttpOnly: true,
+			Secure:   h.secureCookies,
+			SameSite: http.SameSiteLaxMode,
+			Expires:  res.AccessExpires,
+			MaxAge:   int(time.Until(res.AccessExpires).Seconds()),
+		})
+
+		http.SetCookie(w, &http.Cookie{
 			Name:     CookieRefreshToken,
 			Value:    res.RefreshToken,
-			Path:     AuthCookiePath,
+			Path:     RefreshCookiePath,
 			HttpOnly: true,
 			Secure:   h.secureCookies,
 			SameSite: http.SameSiteLaxMode,

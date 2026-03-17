@@ -1,6 +1,8 @@
 package v1
 
 const (
+	CookieAccessToken  = "access_token"
 	CookieRefreshToken = "refresh_token"
-	AuthCookiePath     = "/api/v1/auth"
+	AccessCookiePath   = "/api"
+	RefreshCookiePath  = "/api/v1/auth"
 )
