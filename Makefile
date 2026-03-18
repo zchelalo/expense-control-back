@@ -9,7 +9,7 @@ DOCKER_NETWORK_NAME = expense-control-back-network
 DOCKER_NETWORK = $(DOCKER_NETWORK_PREFIX)$(DOCKER_NETWORK_NAME)
 
 URI_DB = postgresql://$(DB_USER):$(DB_PASS)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=disable
-MIGRATE = docker run -v $(shell pwd)/internal/db/migrations:/migrations --network $(DOCKER_NETWORK) migrate/migrate -path /migrations -database "$(URI_DB)" -verbose
+MIGRATE = docker run -it -v $(shell pwd)/internal/db/migrations:/migrations --network $(DOCKER_NETWORK) migrate/migrate -path /migrations -database "$(URI_DB)" -verbose
 
 setup:
 	$(MAKE) create-envs
