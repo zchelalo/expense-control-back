@@ -15,6 +15,16 @@ sql:
         sql_package: "pgx/v5"
         emit_json_tags: true
         emit_empty_slices: true
+  - engine: "postgresql"
+    schema: "internal/db/migrations"
+    queries: "internal/modules/account/adapters/persistence/postgres/queries"
+    gen:
+      go:
+        package: "accountdb"
+        out: "internal/db/sqlc/account"
+        sql_package: "pgx/v5"
+        emit_json_tags: true
+        emit_empty_slices: true
 overrides:
   go: null
 plugins: []

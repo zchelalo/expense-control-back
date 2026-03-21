@@ -22,6 +22,7 @@ CREATE TABLE "auth_sessions" (
 
 CREATE TABLE "accounts" (
   "id" uuid PRIMARY KEY,
+  "name" varchar(50) NOT NULL,
   "balance" decimal(12,2) NOT NULL DEFAULT 0,
   "user_id" uuid NOT NULL,
   "created_at" timestamptz NOT NULL DEFAULT (now()),
