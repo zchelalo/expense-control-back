@@ -63,7 +63,8 @@ AND deleted_at IS NULL
 -- name: DeleteAccount :exec
 UPDATE accounts
 SET
-  deleted_at = $2
+  deleted_at = $2,
+  updated_at = $3
 WHERE id = $1
 AND deleted_at IS NULL
 ;

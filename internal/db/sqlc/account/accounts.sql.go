@@ -50,7 +50,8 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) er
 const deleteAccount = `-- name: DeleteAccount :exec
 UPDATE accounts
 SET
-  deleted_at = $2
+  deleted_at = $2,
+  updated_at = $3
 WHERE id = $1
 AND deleted_at IS NULL
 `
@@ -58,10 +59,11 @@ AND deleted_at IS NULL
 type DeleteAccountParams struct {
 	ID        pgtype.UUID        `json:"id"`
 	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) DeleteAccount(ctx context.Context, arg DeleteAccountParams) error {
-	_, err := q.db.Exec(ctx, deleteAccount, arg.ID, arg.DeletedAt)
+	_, err := q.db.Exec(ctx, deleteAccount, arg.ID, arg.DeletedAt, arg.UpdatedAt)
 	return err
 }
 
