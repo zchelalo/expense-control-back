@@ -108,23 +108,23 @@ SELECT
 FROM accounts
 WHERE user_id = $1
   AND deleted_at IS NULL
-  AND ($2::timestamptz IS NULL OR (created_at, id) < ($2, $3))
+  AND ($2::timestamptz IS NULL OR (created_at, id) < ($2, $3::uuid))
 ORDER BY created_at DESC, id DESC
 LIMIT $4
 `
 
 type ListAccountsByUserIDParams struct {
-	UserID    pgtype.UUID        `json:"user_id"`
-	Column2   pgtype.Timestamptz `json:"column_2"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	Limit     int32              `json:"limit"`
+	UserID  pgtype.UUID        `json:"user_id"`
+	Column2 pgtype.Timestamptz `json:"column_2"`
+	Column3 pgtype.UUID        `json:"column_3"`
+	Limit   int32              `json:"limit"`
 }
 
 func (q *Queries) ListAccountsByUserID(ctx context.Context, arg ListAccountsByUserIDParams) ([]Account, error) {
 	rows, err := q.db.Query(ctx, listAccountsByUserID,
 		arg.UserID,
 		arg.Column2,
-		arg.CreatedAt,
+		arg.Column3,
 		arg.Limit,
 	)
 	if err != nil {

@@ -23,7 +23,7 @@ SELECT
 FROM accounts
 WHERE user_id = $1
   AND deleted_at IS NULL
-  AND ($2::timestamptz IS NULL OR (created_at, id) < ($2, $3))
+  AND ($2::timestamptz IS NULL OR (created_at, id) < ($2, $3::uuid))
 ORDER BY created_at DESC, id DESC
 LIMIT $4
 ;

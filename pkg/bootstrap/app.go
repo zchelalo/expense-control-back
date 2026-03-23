@@ -8,6 +8,7 @@ import (
 	accounthttp "github.com/zchelalo/expense-control-back/internal/modules/account/adapters/http/v1"
 	accountpg "github.com/zchelalo/expense-control-back/internal/modules/account/adapters/persistence/postgres"
 	createuc "github.com/zchelalo/expense-control-back/internal/modules/account/application/create"
+	listuc "github.com/zchelalo/expense-control-back/internal/modules/account/application/list"
 	authhttp "github.com/zchelalo/expense-control-back/internal/modules/auth/adapters/http/v1"
 	authpg "github.com/zchelalo/expense-control-back/internal/modules/auth/adapters/persistence/postgres"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/adapters/tokens/jwt"
@@ -70,7 +71,8 @@ func InitApp(log *zap.Logger, cfg Config) (*App, error) {
 	userStore := accountpg.NewUserRepo(db)
 
 	createAccountUseCase := createuc.New(accountStore, userStore, clock, ids)
-	accountV1 := accounthttp.NewRouter(createAccountUseCase, mdw)
+	listAccountsUseCase := listuc.New(accountStore, userStore, ids, cfg.PaginatorLimitDefault)
+	accountV1 := accounthttp.NewRouter(createAccountUseCase, listAccountsUseCase, mdw)
 
 	s, err := server.New(address, mdw, authV1.Register, accountV1.Register)
 	if err != nil {

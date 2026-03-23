@@ -115,21 +115,29 @@ func (r *AccountRepo) ByID(ctx context.Context, id domain.AccountID) (domain.Acc
 }
 
 func (r *AccountRepo) ListByUserID(ctx context.Context, userID domain.UserID, createdAt *time.Time, accountID *domain.AccountID, limit int) ([]domain.Account, error) {
-	accounts, err := r.q.ListAccountsByUserID(ctx, accountdb.ListAccountsByUserIDParams{
+	params := accountdb.ListAccountsByUserIDParams{
 		UserID: pgtype.UUID{
 			Bytes: userID.UUID(),
 			Valid: true,
 		},
-		CreatedAt: pgtype.Timestamptz{
-			Time: *createdAt,
-			Valid: createdAt != nil,
-		},
-		Column2: pgtype.Timestamptz{
-			Time: *createdAt,
-			Valid: createdAt != nil,
-		},
 		Limit: int32(limit),
-	})
+	}
+
+	if createdAt != nil {
+		params.Column2 = pgtype.Timestamptz{
+			Time:  *createdAt,
+			Valid: true,
+		}
+	}
+
+	if accountID != nil {
+		params.Column3 = pgtype.UUID{
+			Bytes: accountID.UUID(),
+			Valid: true,
+		}
+	}
+
+	accounts, err := r.q.ListAccountsByUserID(ctx, params)
 	if err != nil {
 		return nil, err
 	}

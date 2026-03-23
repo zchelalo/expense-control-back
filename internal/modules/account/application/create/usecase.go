@@ -43,7 +43,7 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 		log.Warn("missing user ID in create account request",
 			zap.String("stage", "validate_input"),
 		)
-		return Result{}, ErrMissingUserID
+		return Result{}, domain.ErrInvalidUserID
 	}
 
 	if cmd.Name.String() == "" {

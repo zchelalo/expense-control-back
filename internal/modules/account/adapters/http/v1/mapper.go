@@ -4,21 +4,13 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/zchelalo/expense-control-back/internal/modules/account/application/create"
+	"github.com/zchelalo/expense-control-back/internal/modules/account/application/list"
 	"github.com/zchelalo/expense-control-back/internal/modules/account/domain"
 	"github.com/zchelalo/expense-control-back/internal/modules/account/ports"
 	"github.com/zchelalo/expense-control-back/pkg/response"
 )
 
 func mapError(err error) (int, response.APIError) {
-	// Create errors
-	if errors.Is(err, create.ErrMissingUserID) {
-		return http.StatusBadRequest, response.APIError{
-			Code:    "missing_user_id",
-			Message: err.Error(),
-		}
-	}
-
 	// Ports errors
 	if errors.As(err, &ports.ErrNotFound{}) {
 		return http.StatusNotFound, response.APIError{
@@ -49,6 +41,14 @@ func mapError(err error) (int, response.APIError) {
 	if errors.Is(err, domain.ErrInvalidBalance) {
 		return http.StatusBadRequest, response.APIError{
 			Code:    "invalid_balance",
+			Message: err.Error(),
+		}
+	}
+
+	// Application list errors
+	if errors.Is(err, list.ErrCreatedAtWithoutAccountID) || errors.Is(err, list.ErrAccountIDWithoutCreatedAt) {
+		return http.StatusBadRequest, response.APIError{
+			Code:    "invalid_cursor",
 			Message: err.Error(),
 		}
 	}
