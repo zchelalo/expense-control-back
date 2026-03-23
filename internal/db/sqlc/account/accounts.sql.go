@@ -109,6 +109,7 @@ FROM accounts
 WHERE user_id = $1
   AND deleted_at IS NULL
   AND ($2::timestamptz IS NULL OR (created_at, id) < ($2, $3::uuid))
+  AND ($5::text IS NULL OR name ILIKE '%' || $5 || '%')
 ORDER BY created_at DESC, id DESC
 LIMIT $4
 `
@@ -118,6 +119,7 @@ type ListAccountsByUserIDAfterParams struct {
 	Column2 pgtype.Timestamptz `json:"column_2"`
 	Column3 pgtype.UUID        `json:"column_3"`
 	Limit   int32              `json:"limit"`
+	Search  pgtype.Text        `json:"search"`
 }
 
 func (q *Queries) ListAccountsByUserIDAfter(ctx context.Context, arg ListAccountsByUserIDAfterParams) ([]Account, error) {
@@ -126,6 +128,7 @@ func (q *Queries) ListAccountsByUserIDAfter(ctx context.Context, arg ListAccount
 		arg.Column2,
 		arg.Column3,
 		arg.Limit,
+		arg.Search,
 	)
 	if err != nil {
 		return nil, err
@@ -166,6 +169,7 @@ FROM accounts
 WHERE user_id = $1
   AND deleted_at IS NULL
   AND (created_at, id) > ($2::timestamptz, $3::uuid)
+  AND ($5::text IS NULL OR name ILIKE '%' || $5 || '%')
 ORDER BY created_at ASC, id ASC
 LIMIT $4
 `
@@ -175,6 +179,7 @@ type ListAccountsByUserIDBeforeParams struct {
 	Column2 pgtype.Timestamptz `json:"column_2"`
 	Column3 pgtype.UUID        `json:"column_3"`
 	Limit   int32              `json:"limit"`
+	Search  pgtype.Text        `json:"search"`
 }
 
 func (q *Queries) ListAccountsByUserIDBefore(ctx context.Context, arg ListAccountsByUserIDBeforeParams) ([]Account, error) {
@@ -183,6 +188,7 @@ func (q *Queries) ListAccountsByUserIDBefore(ctx context.Context, arg ListAccoun
 		arg.Column2,
 		arg.Column3,
 		arg.Limit,
+		arg.Search,
 	)
 	if err != nil {
 		return nil, err

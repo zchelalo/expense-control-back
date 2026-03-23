@@ -86,7 +86,7 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 		return Result{}, ports.ErrNotFound{Name: "user"}
 	}
 
-	accounts, err := uc.accounts.ListByUserID(ctx, cmd.UserID, cmd.CreatedAt, cmd.AccountID, cmd.Limit, cmd.IsBefore)
+	accounts, err := uc.accounts.ListByUserID(ctx, cmd.UserID, cmd.Name, cmd.CreatedAt, cmd.AccountID, cmd.Limit, cmd.IsBefore)
 	if err != nil {
 		log.Error("failed to list accounts",
 			zap.String("stage", "list_accounts"),

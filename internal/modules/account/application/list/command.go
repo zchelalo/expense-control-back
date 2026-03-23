@@ -8,6 +8,7 @@ import (
 
 type Command struct {
 	UserID    domain.UserID
+	Name      *string
 	CreatedAt *time.Time
 	AccountID *domain.AccountID
 	Limit     int

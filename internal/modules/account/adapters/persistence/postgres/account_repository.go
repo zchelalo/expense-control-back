@@ -113,9 +113,16 @@ func (r *AccountRepo) ByID(ctx context.Context, id domain.AccountID) (domain.Acc
 		parsedDeletedAt,
 	), nil
 }
-func (r *AccountRepo) ListByUserID(ctx context.Context, userID domain.UserID, createdAt *time.Time, accountID *domain.AccountID, limit int, isBefore bool) ([]domain.Account, error) {
+func (r *AccountRepo) ListByUserID(ctx context.Context, userID domain.UserID, name *string, createdAt *time.Time, accountID *domain.AccountID, limit int, isBefore bool) ([]domain.Account, error) {
 	var accounts []accountdb.Account
 	var err error
+
+	var nameFilter pgtype.Text
+	if name != nil {
+		nameFilter = pgtype.Text{String: *name, Valid: true}
+	} else {
+		nameFilter = pgtype.Text{Valid: false}
+	}
 
 	if isBefore {
 		accounts, err = r.q.ListAccountsByUserIDBefore(ctx, accountdb.ListAccountsByUserIDBeforeParams{
@@ -131,7 +138,8 @@ func (r *AccountRepo) ListByUserID(ctx context.Context, userID domain.UserID, cr
 				Bytes: accountID.UUID(),
 				Valid: true,
 			},
-			Limit: int32(limit),
+			Limit:  int32(limit),
+			Search: nameFilter,
 		})
 	} else {
 		params := accountdb.ListAccountsByUserIDAfterParams{
@@ -139,7 +147,8 @@ func (r *AccountRepo) ListByUserID(ctx context.Context, userID domain.UserID, cr
 				Bytes: userID.UUID(),
 				Valid: true,
 			},
-			Limit: int32(limit),
+			Limit:  int32(limit),
+			Search: nameFilter,
 		}
 
 		if createdAt != nil {

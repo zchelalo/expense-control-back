@@ -24,6 +24,7 @@ FROM accounts
 WHERE user_id = $1
   AND deleted_at IS NULL
   AND ($2::timestamptz IS NULL OR (created_at, id) < ($2, $3::uuid))
+  AND (sqlc.narg('search')::text IS NULL OR name ILIKE '%' || sqlc.narg('search') || '%')
 ORDER BY created_at DESC, id DESC
 LIMIT $4
 ;
@@ -41,6 +42,7 @@ FROM accounts
 WHERE user_id = $1
   AND deleted_at IS NULL
   AND (created_at, id) > ($2::timestamptz, $3::uuid)
+  AND (sqlc.narg('search')::text IS NULL OR name ILIKE '%' || sqlc.narg('search') || '%')
 ORDER BY created_at ASC, id ASC
 LIMIT $4
 ;

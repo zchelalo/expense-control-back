@@ -102,8 +102,15 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		isBefore = true
 	}
 
+	search := queries.Get("search")
+	var name *string
+	if search != "" {
+		name = &search
+	}
+
 	res, err := h.listUC.Execute(r.Context(), list.Command{
 		UserID:    userID,
+		Name:      name,
 		CreatedAt: createdAt,
 		AccountID: accountID,
 		Limit:     limit,
