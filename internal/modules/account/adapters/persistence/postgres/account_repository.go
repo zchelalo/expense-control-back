@@ -197,7 +197,9 @@ func (r *AccountRepo) UpdateName(ctx context.Context, accountID domain.AccountID
 
 func (r *AccountRepo) UpdateBalance(ctx context.Context, accountID domain.AccountID, balance domain.Balance, now time.Time) error {
 	var balanceNumeric pgtype.Numeric
-	balanceNumeric.Scan(balance.Float64())
+	if err := balanceNumeric.Scan(fmt.Sprintf("%f", balance.Float64())); err != nil {
+		return err
+	}
 
 	return r.q.UpdateAccountBalance(ctx, accountdb.UpdateAccountBalanceParams{
 		ID: pgtype.UUID{
