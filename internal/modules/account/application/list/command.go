@@ -11,4 +11,5 @@ type Command struct {
 	CreatedAt *time.Time
 	AccountID *domain.AccountID
 	Limit     int
+	IsBefore  bool
 }

@@ -14,6 +14,7 @@ import (
 
 type listResponse struct {
 	Accounts   []accountResponse `json:"accounts"`
+	PrevCursor string            `json:"prev_cursor,omitempty"`
 	NextCursor string            `json:"next_cursor,omitempty"`
 }
 
@@ -55,14 +56,17 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 	var createdAt *time.Time
 	var accountID *domain.AccountID
+	var isBefore bool
 
-	cursorRaw := queries.Get("cursor")
-	if cursorRaw != "" {
-		ts, uid, err := pagination.DecodeCursor(cursorRaw)
+	afterCursor := queries.Get("after_cursor")
+	beforeCursor := queries.Get("before_cursor")
+
+	if afterCursor != "" {
+		ts, uid, err := pagination.DecodeCursor(afterCursor)
 		if err != nil {
 			response.WriteError(w, http.StatusBadRequest, response.APIError{
-				Code:    "invalid_cursor",
-				Message: "invalid pagination cursor",
+				Code:    "invalid_after_cursor",
+				Message: "invalid after pagination cursor",
 			}, rid)
 			return
 		}
@@ -71,11 +75,31 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			response.WriteError(w, http.StatusBadRequest, response.APIError{
 				Code:    "invalid_cursor",
-				Message: "invalid account ID in cursor",
+				Message: "invalid account ID in after cursor",
 			}, rid)
 			return
 		}
 		accountID = &accID
+	} else if beforeCursor != "" {
+		ts, uid, err := pagination.DecodeCursor(beforeCursor)
+		if err != nil {
+			response.WriteError(w, http.StatusBadRequest, response.APIError{
+				Code:    "invalid_before_cursor",
+				Message: "invalid before pagination cursor",
+			}, rid)
+			return
+		}
+		createdAt = &ts
+		accID, err := domain.NewAccountID(uid)
+		if err != nil {
+			response.WriteError(w, http.StatusBadRequest, response.APIError{
+				Code:    "invalid_cursor",
+				Message: "invalid account ID in before cursor",
+			}, rid)
+			return
+		}
+		accountID = &accID
+		isBefore = true
 	}
 
 	res, err := h.listUC.Execute(r.Context(), list.Command{
@@ -83,6 +107,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: createdAt,
 		AccountID: accountID,
 		Limit:     limit,
+		IsBefore:  isBefore,
 	})
 	if err != nil {
 		status, apiErr := mapError(err)
@@ -105,9 +130,17 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	if len(res.Account) > 0 && len(res.Account) == limit {
+	if len(res.Account) > 0 {
 		lastAcc := res.Account[len(res.Account)-1]
-		resp.NextCursor = pagination.EncodeCursor(lastAcc.CreatedAt(), lastAcc.ID().UUID())
+		firstAcc := res.Account[0]
+
+		if len(res.Account) == limit {
+			resp.NextCursor = pagination.EncodeCursor(lastAcc.CreatedAt(), lastAcc.ID().UUID())
+		}
+
+		if afterCursor != "" || beforeCursor != "" {
+			resp.PrevCursor = pagination.EncodeCursor(firstAcc.CreatedAt(), firstAcc.ID().UUID())
+		}
 	}
 
 	response.WriteJSON(w, http.StatusOK, resp, nil, rid)

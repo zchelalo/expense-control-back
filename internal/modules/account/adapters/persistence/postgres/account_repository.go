@@ -113,33 +113,60 @@ func (r *AccountRepo) ByID(ctx context.Context, id domain.AccountID) (domain.Acc
 		parsedDeletedAt,
 	), nil
 }
+func (r *AccountRepo) ListByUserID(ctx context.Context, userID domain.UserID, createdAt *time.Time, accountID *domain.AccountID, limit int, isBefore bool) ([]domain.Account, error) {
+	var accounts []accountdb.Account
+	var err error
 
-func (r *AccountRepo) ListByUserID(ctx context.Context, userID domain.UserID, createdAt *time.Time, accountID *domain.AccountID, limit int) ([]domain.Account, error) {
-	params := accountdb.ListAccountsByUserIDParams{
-		UserID: pgtype.UUID{
-			Bytes: userID.UUID(),
-			Valid: true,
-		},
-		Limit: int32(limit),
-	}
-
-	if createdAt != nil {
-		params.Column2 = pgtype.Timestamptz{
-			Time:  *createdAt,
-			Valid: true,
+	if isBefore {
+		accounts, err = r.q.ListAccountsByUserIDBefore(ctx, accountdb.ListAccountsByUserIDBeforeParams{
+			UserID: pgtype.UUID{
+				Bytes: userID.UUID(),
+				Valid: true,
+			},
+			Column2: pgtype.Timestamptz{
+				Time:  *createdAt,
+				Valid: true,
+			},
+			Column3: pgtype.UUID{
+				Bytes: accountID.UUID(),
+				Valid: true,
+			},
+			Limit: int32(limit),
+		})
+	} else {
+		params := accountdb.ListAccountsByUserIDAfterParams{
+			UserID: pgtype.UUID{
+				Bytes: userID.UUID(),
+				Valid: true,
+			},
+			Limit: int32(limit),
 		}
-	}
 
-	if accountID != nil {
-		params.Column3 = pgtype.UUID{
-			Bytes: accountID.UUID(),
-			Valid: true,
+		if createdAt != nil {
+			params.Column2 = pgtype.Timestamptz{
+				Time:  *createdAt,
+				Valid: true,
+			}
 		}
+
+		if accountID != nil {
+			params.Column3 = pgtype.UUID{
+				Bytes: accountID.UUID(),
+				Valid: true,
+			}
+		}
+
+		accounts, err = r.q.ListAccountsByUserIDAfter(ctx, params)
 	}
 
-	accounts, err := r.q.ListAccountsByUserID(ctx, params)
 	if err != nil {
 		return nil, err
+	}
+
+	if isBefore {
+		for i, j := 0, len(accounts)-1; i < j; i, j = i+1, j-1 {
+			accounts[i], accounts[j] = accounts[j], accounts[i]
+		}
 	}
 
 	result := make([]domain.Account, len(accounts))

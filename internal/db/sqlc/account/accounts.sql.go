@@ -96,7 +96,7 @@ func (q *Queries) GetAccountByID(ctx context.Context, id pgtype.UUID) (Account, 
 	return i, err
 }
 
-const listAccountsByUserID = `-- name: ListAccountsByUserID :many
+const listAccountsByUserIDAfter = `-- name: ListAccountsByUserIDAfter :many
 SELECT
   id,
   name,
@@ -113,15 +113,72 @@ ORDER BY created_at DESC, id DESC
 LIMIT $4
 `
 
-type ListAccountsByUserIDParams struct {
+type ListAccountsByUserIDAfterParams struct {
 	UserID  pgtype.UUID        `json:"user_id"`
 	Column2 pgtype.Timestamptz `json:"column_2"`
 	Column3 pgtype.UUID        `json:"column_3"`
 	Limit   int32              `json:"limit"`
 }
 
-func (q *Queries) ListAccountsByUserID(ctx context.Context, arg ListAccountsByUserIDParams) ([]Account, error) {
-	rows, err := q.db.Query(ctx, listAccountsByUserID,
+func (q *Queries) ListAccountsByUserIDAfter(ctx context.Context, arg ListAccountsByUserIDAfterParams) ([]Account, error) {
+	rows, err := q.db.Query(ctx, listAccountsByUserIDAfter,
+		arg.UserID,
+		arg.Column2,
+		arg.Column3,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Account{}
+	for rows.Next() {
+		var i Account
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Balance,
+			&i.UserID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAccountsByUserIDBefore = `-- name: ListAccountsByUserIDBefore :many
+SELECT
+  id,
+  name,
+  balance,
+  user_id,
+  created_at,
+  updated_at,
+  deleted_at
+FROM accounts
+WHERE user_id = $1
+  AND deleted_at IS NULL
+  AND (created_at, id) > ($2::timestamptz, $3::uuid)
+ORDER BY created_at ASC, id ASC
+LIMIT $4
+`
+
+type ListAccountsByUserIDBeforeParams struct {
+	UserID  pgtype.UUID        `json:"user_id"`
+	Column2 pgtype.Timestamptz `json:"column_2"`
+	Column3 pgtype.UUID        `json:"column_3"`
+	Limit   int32              `json:"limit"`
+}
+
+func (q *Queries) ListAccountsByUserIDBefore(ctx context.Context, arg ListAccountsByUserIDBeforeParams) ([]Account, error) {
+	rows, err := q.db.Query(ctx, listAccountsByUserIDBefore,
 		arg.UserID,
 		arg.Column2,
 		arg.Column3,
