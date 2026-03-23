@@ -5,6 +5,9 @@ import (
 	"fmt"
 
 	"github.com/zchelalo/expense-control-back/internal/middleware"
+	accounthttp "github.com/zchelalo/expense-control-back/internal/modules/account/adapters/http/v1"
+	accountpg "github.com/zchelalo/expense-control-back/internal/modules/account/adapters/persistence/postgres"
+	createuc "github.com/zchelalo/expense-control-back/internal/modules/account/application/create"
 	authhttp "github.com/zchelalo/expense-control-back/internal/modules/auth/adapters/http/v1"
 	authpg "github.com/zchelalo/expense-control-back/internal/modules/auth/adapters/persistence/postgres"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/adapters/tokens/jwt"
@@ -63,7 +66,13 @@ func InitApp(log *zap.Logger, cfg Config) (*App, error) {
 	secureCookies := cfg.Environment == "production"
 	authV1 := authhttp.NewRouter(registerUseCase, loginUseCase, logoutUseCase, refreshUseCase, secureCookies, mdw)
 
-	s, err := server.New(address, mdw, authV1.Register)
+	accountStore := accountpg.NewAccountRepo(db)
+	userStore := accountpg.NewUserRepo(db)
+
+	createAccountUseCase := createuc.New(accountStore, userStore, clock, ids)
+	accountV1 := accounthttp.NewRouter(createAccountUseCase, mdw)
+
+	s, err := server.New(address, mdw, authV1.Register, accountV1.Register)
 	if err != nil {
 		db.Close()
 		return nil, fmt.Errorf("cannot create server: %w", err)
