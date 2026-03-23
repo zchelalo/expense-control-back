@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/zchelalo/expense-control-back/internal/middleware"
 	"github.com/zchelalo/expense-control-back/internal/modules/account/application/create"
@@ -12,12 +13,21 @@ import (
 )
 
 type createRequest struct {
-	Name   string `json:"name"`
+	Name    string  `json:"name"`
 	Balance float64 `json:"balance"`
 }
 
+type accountResponse struct {
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	Balance   float64 `json:"balance"`
+	UserID    string  `json:"user_id"`
+	CreatedAt string  `json:"created_at"`
+	UpdatedAt string  `json:"updated_at"`
+}
+
 type createResponse struct {
-	Account domain.Account `json:"account"`
+	Account accountResponse `json:"account"`
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
@@ -76,7 +86,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	createdAccount, err := h.createUC.Execute(r.Context(), create.Command{
+	res, err := h.createUC.Execute(r.Context(), create.Command{
 		UserID:  userID,
 		Name:    name,
 		Balance: balance,
@@ -88,7 +98,14 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := createResponse{
-		Account: *createdAccount.Account,
+		Account: accountResponse{
+			ID:        res.Account.ID().String(),
+			Name:      res.Account.Name().String(),
+			Balance:   res.Account.Balance().Float64(),
+			UserID:    res.Account.UserID().String(),
+			CreatedAt: res.Account.CreatedAt().UTC().Format(time.RFC3339),
+			UpdatedAt: res.Account.UpdatedAt().UTC().Format(time.RFC3339),
+		},
 	}
 
 	response.WriteJSON(w, http.StatusCreated, resp, nil, rid)

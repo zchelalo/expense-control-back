@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -29,7 +30,9 @@ func (r *AccountRepo) Create(ctx context.Context, s domain.Account) error {
 	}
 
 	var balance pgtype.Numeric
-	balance.Scan(s.Balance().Float64())
+	if err := balance.Scan(fmt.Sprintf("%f", s.Balance().Float64())); err != nil {
+		return err
+	}
 
 	params := accountdb.CreateAccountParams{
 		ID: pgtype.UUID{
