@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/zchelalo/expense-control-back/internal/modules/account/application/byid"
 	"github.com/zchelalo/expense-control-back/internal/modules/account/application/list"
 	"github.com/zchelalo/expense-control-back/internal/modules/account/domain"
 	"github.com/zchelalo/expense-control-back/internal/modules/account/ports"
@@ -49,6 +50,14 @@ func mapError(err error) (int, response.APIError) {
 	if errors.Is(err, list.ErrCreatedAtWithoutAccountID) || errors.Is(err, list.ErrAccountIDWithoutCreatedAt) {
 		return http.StatusBadRequest, response.APIError{
 			Code:    "invalid_cursor",
+			Message: err.Error(),
+		}
+	}
+
+	// Application by id errors
+	if errors.Is(err, byid.ErrAccountDoesntBelongToUser) {
+		return http.StatusForbidden, response.APIError{
+			Code:    "account_doesnt_belong_to_user",
 			Message: err.Error(),
 		}
 	}
