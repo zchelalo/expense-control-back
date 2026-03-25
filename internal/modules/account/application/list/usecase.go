@@ -79,7 +79,7 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 		return Result{}, err
 	}
 	if !exists {
-		log.Warn("user not found for create account request",
+		log.Warn("user not found for list accounts request",
 			zap.String("stage", "check_user_exists"),
 			zap.String("user_id", cmd.UserID.String()),
 		)

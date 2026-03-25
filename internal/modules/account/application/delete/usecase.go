@@ -1,4 +1,4 @@
-package updatename
+package delete
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 type UseCase struct {
 	accounts ports.AccountRepository
 	users ports.UserRepository
-	clock    clock.Clock
+	clock clock.Clock
 }
 
 func New(
@@ -29,31 +29,24 @@ func New(
 }
 
 type Result struct {
-	Account domain.Account
+	Success bool
 }
 
 func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 	log := middleware.LoggerFrom(ctx)
 
 	if cmd.UserID.String() == "" {
-		log.Warn("missing user ID in update account name request",
+		log.Warn("missing user ID in delete account request",
 			zap.String("stage", "validate_input"),
 		)
 		return Result{}, domain.ErrInvalidUserID
 	}
 
 	if cmd.AccountID.String() == "" {
-		log.Warn("missing account ID in update account name request",
+		log.Warn("missing account ID in delete account request",
 			zap.String("stage", "validate_input"),
 		)
 		return Result{}, domain.ErrInvalidAccountID
-	}
-
-	if cmd.Name.String() == "" {
-		log.Warn("missing name in update account name request",
-			zap.String("stage", "validate_input"),
-		)
-		return Result{}, domain.ErrInvalidName
 	}
 
 	// Verify that the user exists
@@ -66,7 +59,7 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 		return Result{}, err
 	}
 	if !exists {
-		log.Warn("user not found for update account name request",
+		log.Warn("user not found for delete account request",
 			zap.String("stage", "check_user_exists"),
 			zap.String("user_id", cmd.UserID.String()),
 		)
@@ -83,7 +76,7 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 	}
 
 	if account.UserID().String() != cmd.UserID.String() {
-		log.Warn("account doesn't belong to user in update account name request",
+		log.Warn("account doesn't belong to user in delete account request",
 			zap.String("stage", "validate_account_belongs_to_user"),
 			zap.String("account_id", cmd.AccountID.String()),
 			zap.String("user_id", cmd.UserID.String()),
@@ -92,22 +85,14 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 	}
 
 	now := uc.clock.Now()
-	err = uc.accounts.UpdateName(ctx, cmd.AccountID, cmd.Name, now)
+	err = uc.accounts.Delete(ctx, cmd.AccountID, now)
 	if err != nil {
-		log.Error("failed to update account name",
-			zap.String("stage", "update_account_name"),
+		log.Error("failed to delete account",
+			zap.String("stage", "delete_account"),
 			zap.Error(err),
 		)
 		return Result{}, err
 	}
-	
-	return Result{Account: domain.RehydrateAccount(
-		account.ID(),
-		cmd.Name,
-		account.Balance(),
-		account.UserID(),
-		account.CreatedAt(),
-		now,
-		account.DeletedAt(),
-	)}, nil
+
+	return Result{Success: true}, nil
 }
