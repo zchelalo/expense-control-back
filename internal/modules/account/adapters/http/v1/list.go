@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/zchelalo/expense-control-back/internal/middleware"
 	"github.com/zchelalo/expense-control-back/internal/modules/account/application/list"
-	"github.com/zchelalo/expense-control-back/internal/modules/account/domain"
 	"github.com/zchelalo/expense-control-back/pkg/pagination"
 	"github.com/zchelalo/expense-control-back/pkg/response"
 )
@@ -30,17 +30,9 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := domain.NewUserID(subID.UUID())
-	if err != nil {
-		response.WriteError(w, http.StatusBadRequest, response.APIError{
-			Code:    "invalid_user_id",
-			Message: "invalid user ID format",
-		}, rid)
-		return
-	}
-
 	queries := r.URL.Query()
 
+	var err error
 	var limit int
 	limitRaw := queries.Get("limit")
 	if limitRaw != "" {
@@ -55,7 +47,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var createdAt *time.Time
-	var accountID *domain.AccountID
+	var accountID *uuid.UUID
 	var isBefore bool
 
 	afterCursor := queries.Get("after_cursor")
@@ -71,15 +63,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		createdAt = &ts
-		accID, err := domain.NewAccountID(uid)
-		if err != nil {
-			response.WriteError(w, http.StatusBadRequest, response.APIError{
-				Code:    "invalid_cursor",
-				Message: "invalid account ID in after cursor",
-			}, rid)
-			return
-		}
-		accountID = &accID
+		accountID = &uid
 	} else if beforeCursor != "" {
 		ts, uid, err := pagination.DecodeCursor(beforeCursor)
 		if err != nil {
@@ -90,15 +74,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		createdAt = &ts
-		accID, err := domain.NewAccountID(uid)
-		if err != nil {
-			response.WriteError(w, http.StatusBadRequest, response.APIError{
-				Code:    "invalid_cursor",
-				Message: "invalid account ID in before cursor",
-			}, rid)
-			return
-		}
-		accountID = &accID
+		accountID = &uid
 		isBefore = true
 	}
 
@@ -109,7 +85,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res, err := h.listUC.Execute(r.Context(), list.Command{
-		UserID:    userID,
+		UserID:    subID.UUID(),
 		Name:      name,
 		CreatedAt: createdAt,
 		AccountID: accountID,

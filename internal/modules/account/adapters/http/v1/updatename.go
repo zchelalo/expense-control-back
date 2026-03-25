@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/zchelalo/expense-control-back/internal/middleware"
 	"github.com/zchelalo/expense-control-back/internal/modules/account/application/updatename"
-	"github.com/zchelalo/expense-control-back/internal/modules/account/domain"
 	"github.com/zchelalo/expense-control-back/pkg/response"
 )
 
@@ -32,25 +31,8 @@ func (h *Handler) UpdateName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := domain.NewUserID(subID.UUID())
-	if err != nil {
-		response.WriteError(w, http.StatusBadRequest, response.APIError{
-			Code:    "invalid_user_id",
-			Message: "invalid user ID format",
-		}, rid)
-		return
-	}
-
 	accountIDString := r.PathValue("id")
 	accountIDUUID, err := uuid.Parse(accountIDString)
-	if err != nil {
-		response.WriteError(w, http.StatusBadRequest, response.APIError{
-			Code:    "invalid_account_id",
-			Message: "invalid account ID format",
-		}, rid)
-		return
-	}
-	accountID, err := domain.NewAccountID(accountIDUUID)
 	if err != nil {
 		response.WriteError(w, http.StatusBadRequest, response.APIError{
 			Code:    "invalid_account_id",
@@ -68,19 +50,10 @@ func (h *Handler) UpdateName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	name, err := domain.NewName(req.Name)
-	if err != nil {
-		response.WriteError(w, http.StatusBadRequest, response.APIError{
-			Code:    "invalid_name",
-			Message: "invalid account name",
-		}, rid)
-		return
-	}
-
 	res, err := h.updateNameUC.Execute(r.Context(), updatename.Command{
-		UserID:    userID,
-		AccountID: accountID,
-		Name: name,
+		UserID:    subID.UUID(),
+		AccountID: accountIDUUID,
+		Name:      req.Name,
 	})
 	if err != nil {
 		status, apiErr := mapError(err)

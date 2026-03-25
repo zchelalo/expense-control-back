@@ -3,12 +3,10 @@ package v1
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/zchelalo/expense-control-back/internal/middleware"
 	"github.com/zchelalo/expense-control-back/internal/modules/account/application/create"
-	"github.com/zchelalo/expense-control-back/internal/modules/account/domain"
 	"github.com/zchelalo/expense-control-back/pkg/response"
 )
 
@@ -42,15 +40,6 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := domain.NewUserID(subID.UUID())
-	if err != nil {
-		response.WriteError(w, http.StatusBadRequest, response.APIError{
-			Code:    "invalid_user_id",
-			Message: "invalid user ID format",
-		}, rid)
-		return
-	}
-
 	var req createRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.WriteError(w, http.StatusBadRequest, response.APIError{
@@ -60,36 +49,10 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if strings.TrimSpace(req.Name) == "" || req.Balance < 0 {
-		response.WriteError(w, http.StatusBadRequest, response.APIError{
-			Code:    "invalid_input",
-			Message: "name and balance are required",
-		}, rid)
-		return
-	}
-
-	name, err := domain.NewName(req.Name)
-	if err != nil {
-		response.WriteError(w, http.StatusBadRequest, response.APIError{
-			Code:    "invalid_name",
-			Message: "invalid account name",
-		}, rid)
-		return
-	}
-
-	balance, err := domain.NewBalance(req.Balance)
-	if err != nil {
-		response.WriteError(w, http.StatusBadRequest, response.APIError{
-			Code:    "invalid_balance",
-			Message: "invalid account balance",
-		}, rid)
-		return
-	}
-
 	res, err := h.createUC.Execute(r.Context(), create.Command{
-		UserID:  userID,
-		Name:    name,
-		Balance: balance,
+		UserID:  subID.UUID(),
+		Name:    req.Name,
+		Balance: req.Balance,
 	})
 	if err != nil {
 		status, apiErr := mapError(err)

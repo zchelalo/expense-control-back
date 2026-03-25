@@ -1,8 +1,8 @@
 package byid
 
-import "github.com/zchelalo/expense-control-back/internal/modules/account/domain"
+import "github.com/google/uuid"
 
 type Command struct {
-	UserID    domain.UserID
-	AccountID domain.AccountID
+	UserID    uuid.UUID
+	AccountID uuid.UUID
 }

@@ -39,30 +39,38 @@ type Result struct {
 func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 	log := middleware.LoggerFrom(ctx)
 
-	if cmd.UserID.String() == "" {
-		log.Warn("missing user ID in create account request",
+	userID, err := domain.NewUserID(cmd.UserID)
+	if err != nil {
+		log.Warn("invalid user ID in create account request",
 			zap.String("stage", "validate_input"),
+			zap.String("user_id", cmd.UserID.String()),
+			zap.Error(err),
 		)
-		return Result{}, domain.ErrInvalidUserID
+		return Result{}, err
 	}
 
-	if cmd.Name.String() == "" {
-		log.Warn("missing account name in create account request",
+	name, err := domain.NewName(cmd.Name)
+	if err != nil {
+		log.Warn("invalid account name in create account request",
 			zap.String("stage", "validate_input"),
+			zap.String("name", cmd.Name),
+			zap.Error(err),
 		)
-		return Result{}, domain.ErrInvalidName
+		return Result{}, err
 	}
 
-	if cmd.Balance.Float64() < 0 {
+	balance, err := domain.NewBalance(cmd.Balance)
+	if err != nil {
 		log.Warn("invalid account balance in create account request",
 			zap.String("stage", "validate_input"),
-			zap.Float64("balance", cmd.Balance.Float64()),
+			zap.Float64("balance", cmd.Balance),
+			zap.Error(err),
 		)
-		return Result{}, domain.ErrInvalidBalance
+		return Result{}, err
 	}
 
 	// Verify that the user exists
-	exists, err := uc.users.Exists(ctx, cmd.UserID)
+	exists, err := uc.users.Exists(ctx, userID)
 	if err != nil {
 		log.Error("failed to check if user exists",
 			zap.String("stage", "check_user_exists"),
@@ -73,7 +81,7 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 	if !exists {
 		log.Warn("user not found for create account request",
 			zap.String("stage", "check_user_exists"),
-			zap.String("user_id", cmd.UserID.String()),
+			zap.String("user_id", userID.String()),
 		)
 		return Result{}, ports.ErrNotFound{Name: "user"}
 	}
@@ -85,30 +93,6 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 	if err != nil {
 		log.Error("failed to generate account ID",
 			zap.String("stage", "generate_account_id"),
-			zap.Error(err),
-		)
-		return Result{}, err
-	}
-	userID, err := domain.NewUserID(cmd.UserID.UUID())
-	if err != nil {
-		log.Error("failed to generate user ID",
-			zap.String("stage", "generate_user_id"),
-			zap.Error(err),
-		)
-		return Result{}, err
-	}
-	name, err := domain.NewName(cmd.Name.String())
-	if err != nil {
-		log.Error("failed to generate account name",
-			zap.String("stage", "generate_account_name"),
-			zap.Error(err),
-		)
-		return Result{}, err
-	}
-	balance, err := domain.NewBalance(cmd.Balance.Float64())
-	if err != nil {
-		log.Error("failed to generate account balance",
-			zap.String("stage", "generate_account_balance"),
 			zap.Error(err),
 		)
 		return Result{}, err

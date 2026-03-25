@@ -1,9 +1,9 @@
 package create
 
-import "github.com/zchelalo/expense-control-back/internal/modules/account/domain"
+import "github.com/google/uuid"
 
 type Command struct {
-	Name   domain.Name
-	Balance domain.Balance
-	UserID domain.UserID
+	Name    string
+	Balance float64
+	UserID  uuid.UUID
 }

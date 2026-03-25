@@ -38,11 +38,28 @@ type Result struct {
 func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 	log := middleware.LoggerFrom(ctx)
 
-	if cmd.UserID.String() == "" {
-		log.Warn("missing user ID in list accounts request",
+	userID, err := domain.NewUserID(cmd.UserID)
+	if err != nil {
+		log.Warn("invalid user ID in list accounts request",
 			zap.String("stage", "validate_input"),
+			zap.String("user_id", cmd.UserID.String()),
+			zap.Error(err),
 		)
-		return Result{}, domain.ErrInvalidUserID
+		return Result{}, err
+	}
+
+	var accountID *domain.AccountID
+	if cmd.AccountID != nil {
+		id, err := domain.NewAccountID(*cmd.AccountID)
+		if err != nil {
+			log.Warn("invalid account ID in list accounts request",
+				zap.String("stage", "validate_input"),
+				zap.String("account_id", cmd.AccountID.String()),
+				zap.Error(err),
+			)
+			return Result{}, err
+		}
+		accountID = &id
 	}
 
 	if cmd.Limit <= 0 {
@@ -53,15 +70,15 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 		cmd.Limit = uc.pagLimitDefault
 	}
 
-	if cmd.CreatedAt == nil && cmd.AccountID != nil {
+	if cmd.CreatedAt == nil && accountID != nil {
 		log.Warn("account ID provided without created at in list accounts request",
 			zap.String("stage", "validate_input"),
-			zap.String("account_id", cmd.AccountID.String()),
+			zap.String("account_id", accountID.String()),
 		)
 		return Result{}, ErrAccountIDWithoutCreatedAt
 	}
 
-	if cmd.CreatedAt != nil && cmd.AccountID == nil {
+	if cmd.CreatedAt != nil && accountID == nil {
 		log.Warn("created at provided without account ID in list accounts request",
 			zap.String("stage", "validate_input"),
 			zap.Time("created_at", *cmd.CreatedAt),
@@ -70,7 +87,7 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 	}
 
 	// Verify that the user exists
-	exists, err := uc.users.Exists(ctx, cmd.UserID)
+	exists, err := uc.users.Exists(ctx, userID)
 	if err != nil {
 		log.Error("failed to check if user exists",
 			zap.String("stage", "check_user_exists"),
@@ -81,12 +98,12 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 	if !exists {
 		log.Warn("user not found for list accounts request",
 			zap.String("stage", "check_user_exists"),
-			zap.String("user_id", cmd.UserID.String()),
+			zap.String("user_id", userID.String()),
 		)
 		return Result{}, ports.ErrNotFound{Name: "user"}
 	}
 
-	accounts, err := uc.accounts.ListByUserID(ctx, cmd.UserID, cmd.Name, cmd.CreatedAt, cmd.AccountID, cmd.Limit, cmd.IsBefore)
+	accounts, err := uc.accounts.ListByUserID(ctx, userID, cmd.Name, cmd.CreatedAt, accountID, cmd.Limit, cmd.IsBefore)
 	if err != nil {
 		log.Error("failed to list accounts",
 			zap.String("stage", "list_accounts"),

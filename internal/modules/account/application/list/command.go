@@ -3,14 +3,14 @@ package list
 import (
 	"time"
 
-	"github.com/zchelalo/expense-control-back/internal/modules/account/domain"
+	"github.com/google/uuid"
 )
 
 type Command struct {
-	UserID    domain.UserID
+	UserID    uuid.UUID
 	Name      *string
 	CreatedAt *time.Time
-	AccountID *domain.AccountID
+	AccountID *uuid.UUID
 	Limit     int
 	IsBefore  bool
 }
