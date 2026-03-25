@@ -10,6 +10,7 @@ import (
 	byiduc "github.com/zchelalo/expense-control-back/internal/modules/account/application/byid"
 	createuc "github.com/zchelalo/expense-control-back/internal/modules/account/application/create"
 	listuc "github.com/zchelalo/expense-control-back/internal/modules/account/application/list"
+	updatenameuc "github.com/zchelalo/expense-control-back/internal/modules/account/application/updatename"
 	authhttp "github.com/zchelalo/expense-control-back/internal/modules/auth/adapters/http/v1"
 	authpg "github.com/zchelalo/expense-control-back/internal/modules/auth/adapters/persistence/postgres"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/adapters/tokens/jwt"
@@ -74,7 +75,8 @@ func InitApp(log *zap.Logger, cfg Config) (*App, error) {
 	createAccountUseCase := createuc.New(accountStore, userStore, clock, ids)
 	listAccountsUseCase := listuc.New(accountStore, userStore, ids, cfg.PaginatorLimitDefault)
 	byIDAccountsUseCase := byiduc.New(accountStore, userStore)
-	accountV1 := accounthttp.NewRouter(createAccountUseCase, listAccountsUseCase, byIDAccountsUseCase, mdw)
+	updateAccountNameUseCase := updatenameuc.New(accountStore, userStore, clock)
+	accountV1 := accounthttp.NewRouter(createAccountUseCase, listAccountsUseCase, byIDAccountsUseCase, updateAccountNameUseCase, mdw)
 
 	s, err := server.New(address, mdw, authV1.Register, accountV1.Register)
 	if err != nil {
