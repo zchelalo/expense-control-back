@@ -37,7 +37,7 @@ func (h *Handler) ByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res, err := h.byIDUC.Execute(r.Context(), byid.Command{
-		UserID:    subID.UUID(),
+		UserID:    subID,
 		AccountID: accountIDUUID,
 	})
 	if err != nil {

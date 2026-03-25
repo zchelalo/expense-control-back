@@ -5,7 +5,7 @@ import (
 	"time"
 
 	jwtlib "github.com/golang-jwt/jwt/v5"
-	"github.com/zchelalo/expense-control-back/internal/modules/auth/domain"
+	"github.com/google/uuid"
 	"github.com/zchelalo/expense-control-back/internal/shared/clock"
 )
 
@@ -27,7 +27,7 @@ func NewIssuer(keys *Keys, clock clock.Clock, issuer string, accessTTL, refreshT
 	}
 }
 
-func (i *Issuer) IssueAccess(_ context.Context, sub domain.SubjectID) (string, time.Time, error) {
+func (i *Issuer) IssueAccess(_ context.Context, sub uuid.UUID) (string, time.Time, error) {
 	now := i.clock.Now()
 	exp := now.Add(i.accessTTL)
 
@@ -49,7 +49,7 @@ func (i *Issuer) IssueAccess(_ context.Context, sub domain.SubjectID) (string, t
 	return s, exp, nil
 }
 
-func (i *Issuer) IssueRefresh(_ context.Context, sessionID domain.SessionID, sub domain.SubjectID, refreshID domain.RefreshTokenID) (string, time.Time, error) {
+func (i *Issuer) IssueRefresh(_ context.Context, sessionID uuid.UUID, sub uuid.UUID, refreshID uuid.UUID) (string, time.Time, error) {
 	now := i.clock.Now()
 	exp := now.Add(i.refreshTTL)
 

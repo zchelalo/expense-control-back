@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/zchelalo/expense-control-back/internal/middleware"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/domain"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/ports"
@@ -140,9 +141,9 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 func (uc *UseCase) rotateRefreshToken(
 	ctx context.Context,
 	tokenFP string,
-	expectedCurrent domain.RefreshTokenID,
-	sessionID domain.SessionID,
-	subjectID domain.SubjectID,
+	expectedCurrent uuid.UUID,
+	sessionID uuid.UUID,
+	subjectID uuid.UUID,
 	now time.Time,
 ) (string, time.Time, error) {
 	log := middleware.LoggerFrom(ctx)
@@ -159,9 +160,29 @@ func (uc *UseCase) rotateRefreshToken(
 		return "", time.Time{}, err
 	}
 
+	sid, err := domain.NewSessionID(sessionID)
+	if err != nil {
+		log.Error("invalid session id in claims",
+			zap.String("stage", "validate_claims"),
+			zap.String("session_id", sessionID.String()),
+			zap.Error(err),
+		)
+		return "", time.Time{}, ports.ErrTokenMalformed{Name: "refresh"}
+	}
+
+	currRID, err := domain.NewRefreshTokenID(expectedCurrent)
+	if err != nil {
+		log.Error("invalid current refresh id in claims",
+			zap.String("stage", "validate_claims"),
+			zap.String("refresh_id", expectedCurrent.String()),
+			zap.Error(err),
+		)
+		return "", time.Time{}, ports.ErrTokenMalformed{Name: "refresh"}
+	}
+
 	newExp := uc.clock.Now().Add(uc.refreshTTL)
 
-	ok, err := uc.sessions.ValidateAndRotateRefresh(ctx, sessionID, expectedCurrent, newRefreshID, newExp)
+	ok, err := uc.sessions.ValidateAndRotateRefresh(ctx, sid, currRID, newRefreshID, newExp)
 	if err != nil {
 		if errors.Is(err, ports.ErrSessionRefreshMismatch) {
 			// Mismatch detected
@@ -173,7 +194,7 @@ func (uc *UseCase) rotateRefreshToken(
 				zap.String("refresh_token_fp", tokenFP),
 			)
 
-			if rerr := uc.sessions.Revoke(ctx, sessionID, now); rerr != nil {
+			if rerr := uc.sessions.Revoke(ctx, sid, now); rerr != nil {
 				log.Error("failed to revoke session after refresh mismatch",
 					zap.String("stage", "revoke_session"),
 					zap.String("session_id", sessionID.String()),
@@ -207,7 +228,7 @@ func (uc *UseCase) rotateRefreshToken(
 		return "", time.Time{}, ports.ErrTokenInvalid{Name: "refresh"}
 	}
 
-	refreshToken, refreshTokenExp, err := uc.issuer.IssueRefresh(ctx, sessionID, subjectID, newRefreshID)
+	refreshToken, refreshTokenExp, err := uc.issuer.IssueRefresh(ctx, sessionID, subjectID, newRefreshID.UUID())
 	if err != nil {
 		log.Error("issue refresh token failed",
 			zap.String("stage", "issue_refresh"),

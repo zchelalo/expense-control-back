@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/zchelalo/expense-control-back/internal/modules/auth/domain"
+	"github.com/google/uuid"
 	"github.com/zchelalo/expense-control-back/pkg/response"
 	"go.uber.org/zap"
 )
@@ -87,11 +87,11 @@ func StripBearer(v string) string {
 	return v
 }
 
-func SubjectIDFrom(ctx context.Context) (domain.SubjectID, bool) {
+func SubjectIDFrom(ctx context.Context) (uuid.UUID, bool) {
 	v := ctx.Value(subjectIDKey)
 	if v == nil {
-		return domain.SubjectID{}, false
+		return uuid.Nil, false
 	}
-	sub, ok := v.(domain.SubjectID)
+	sub, ok := v.(uuid.UUID)
 	return sub, ok
 }

@@ -36,7 +36,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res, err := h.deleteUC.Execute(r.Context(), delete.Command{
-		UserID:    subID.UUID(),
+		UserID:    subID,
 		AccountID: accountIDUUID,
 	})
 	if err != nil {

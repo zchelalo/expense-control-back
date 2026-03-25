@@ -8,7 +8,6 @@ import (
 
 	jwtlib "github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/zchelalo/expense-control-back/internal/modules/auth/domain"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/ports"
 )
 
@@ -47,10 +46,6 @@ func (v *Verifier) VerifyAccess(_ context.Context, token string) (ports.AccessCl
 	if err != nil {
 		return ports.AccessClaims{}, ports.ErrTokenMalformed{Name: "access"}
 	}
-	sub, err := domain.NewSubjectID(parsedSub)
-	if err != nil {
-		return ports.AccessClaims{}, ports.ErrTokenMalformed{Name: "access"}
-	}
 
 	var exp time.Time
 	if c.ExpiresAt != nil {
@@ -58,7 +53,7 @@ func (v *Verifier) VerifyAccess(_ context.Context, token string) (ports.AccessCl
 	}
 
 	return ports.AccessClaims{
-		SubjectID: sub,
+		SubjectID: parsedSub,
 		ExpiresAt: exp,
 	}, nil
 }
@@ -89,22 +84,16 @@ func (v *Verifier) VerifyRefresh(_ context.Context, token string) (ports.Refresh
 	if err != nil {
 		return ports.RefreshClaims{}, ports.ErrTokenMalformed{Name: "refresh"}
 	}
-	sid, err := domain.NewSessionID(parsedSid)
-	if err != nil { return ports.RefreshClaims{}, ports.ErrTokenMalformed{Name: "refresh"} }
 
 	parsedSub, err := uuid.Parse(c.Sub)
 	if err != nil {
 		return ports.RefreshClaims{}, ports.ErrTokenMalformed{Name: "refresh"}
 	}
-	sub, err := domain.NewSubjectID(parsedSub)
-	if err != nil { return ports.RefreshClaims{}, ports.ErrTokenMalformed{Name: "refresh"} }
 
 	parsedJti, err := uuid.Parse(c.JTI)
 	if err != nil {
 		return ports.RefreshClaims{}, ports.ErrTokenMalformed{Name: "refresh"}
 	}
-	jti, err := domain.NewRefreshTokenID(parsedJti)
-	if err != nil { return ports.RefreshClaims{}, ports.ErrTokenMalformed{Name: "refresh"} }
 
 	var exp time.Time
 	if c.ExpiresAt != nil {
@@ -112,9 +101,9 @@ func (v *Verifier) VerifyRefresh(_ context.Context, token string) (ports.Refresh
 	}
 
 	return ports.RefreshClaims{
-		SessionID: sid,
-		SubjectID: sub,
-		RefreshID: jti,
+		SessionID: parsedSid,
+		SubjectID: parsedSub,
+		RefreshID: parsedJti,
 		ExpiresAt: exp,
 	}, nil
 }

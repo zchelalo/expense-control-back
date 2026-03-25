@@ -4,15 +4,15 @@ import (
 	"context"
 	"time"
 
-	"github.com/zchelalo/expense-control-back/internal/modules/auth/domain"
+	"github.com/google/uuid"
 )
 
 type TokenIssuer interface {
-	IssueAccess(ctx context.Context, sub domain.SubjectID) (string, time.Time, error)
+	IssueAccess(ctx context.Context, sub uuid.UUID) (string, time.Time, error)
 	IssueRefresh(
 		ctx context.Context,
-		sessionID domain.SessionID,
-		sub domain.SubjectID,
-		refreshID domain.RefreshTokenID,
+		sessionID uuid.UUID,
+		sub uuid.UUID,
+		refreshID uuid.UUID,
 	) (string, time.Time, error)
 }

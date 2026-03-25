@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/zchelalo/expense-control-back/internal/middleware"
+	"github.com/zchelalo/expense-control-back/internal/modules/auth/domain"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/ports"
 	"github.com/zchelalo/expense-control-back/internal/shared/clock"
 	"go.uber.org/zap"
@@ -63,10 +64,20 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) error {
 		return ErrForbidden
 	}
 
+	sid, err := domain.NewSessionID(claims.SessionID)
+	if err != nil {
+		log.Error("invalid session ID in claims",
+			zap.String("stage", "validate_claims"),
+			zap.String("session_id", claims.SessionID.String()),
+			zap.Error(err),
+		)
+		return ports.ErrTokenMalformed{Name: "refresh"}
+	}
+
 	now := uc.clock.Now()
 
 	// Revoke session
-	if err = uc.sessions.Revoke(ctx, claims.SessionID, now); err != nil {
+	if err = uc.sessions.Revoke(ctx, sid, now); err != nil {
 		log.Error("failed to revoke session during logout",
 			zap.String("stage", "revoke_session"),
 			zap.String("subject_id", claims.SubjectID.String()),

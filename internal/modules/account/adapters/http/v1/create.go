@@ -50,7 +50,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res, err := h.createUC.Execute(r.Context(), create.Command{
-		UserID:  subID.UUID(),
+		UserID:  subID,
 		Name:    req.Name,
 		Balance: req.Balance,
 	})

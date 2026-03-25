@@ -85,7 +85,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res, err := h.listUC.Execute(r.Context(), list.Command{
-		UserID:    subID.UUID(),
+		UserID:    subID,
 		Name:      name,
 		CreatedAt: createdAt,
 		AccountID: accountID,

@@ -4,18 +4,18 @@ import (
 	"context"
 	"time"
 
-	"github.com/zchelalo/expense-control-back/internal/modules/auth/domain"
+	"github.com/google/uuid"
 )
 
 type AccessClaims struct {
-	SubjectID domain.SubjectID
+	SubjectID uuid.UUID
 	ExpiresAt time.Time
 }
 
 type RefreshClaims struct {
-	SessionID domain.SessionID
-	SubjectID domain.SubjectID
-	RefreshID domain.RefreshTokenID
+	SessionID uuid.UUID
+	SubjectID uuid.UUID
+	RefreshID uuid.UUID
 	ExpiresAt time.Time
 }
 

@@ -1,8 +1,8 @@
 package logout
 
-import "github.com/zchelalo/expense-control-back/internal/modules/auth/domain"
+import "github.com/google/uuid"
 
 type Command struct {
-	SubjectID domain.SubjectID
+	SubjectID    uuid.UUID
 	RefreshToken string
 }

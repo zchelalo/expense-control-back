@@ -144,7 +144,7 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 	)
 
 	// Issue tokens
-	accessToken, accessTokenExp, err := uc.issuer.IssueAccess(ctx, cred.ID())
+	accessToken, accessTokenExp, err := uc.issuer.IssueAccess(ctx, cred.ID().UUID())
 	if err != nil {
 		log.Warn("failed to issue access token",
 			zap.String("stage", "issue_access_token"),
@@ -152,7 +152,7 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 		)
 		return Result{}, err
 	}
-	refreshToken, refreshTokenExp, err := uc.issuer.IssueRefresh(ctx, sessID, cred.ID(), refreshID)
+	refreshToken, refreshTokenExp, err := uc.issuer.IssueRefresh(ctx, sessID.UUID(), cred.ID().UUID(), refreshID.UUID())
 	if err != nil {
 		log.Warn("failed to issue refresh token",
 			zap.String("stage", "issue_refresh_token"),

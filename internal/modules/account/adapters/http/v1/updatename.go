@@ -51,7 +51,7 @@ func (h *Handler) UpdateName(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res, err := h.updateNameUC.Execute(r.Context(), updatename.Command{
-		UserID:    subID.UUID(),
+		UserID:    subID,
 		AccountID: accountIDUUID,
 		Name:      req.Name,
 	})
