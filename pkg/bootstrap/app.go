@@ -19,6 +19,12 @@ import (
 	logoutuc "github.com/zchelalo/expense-control-back/internal/modules/auth/application/logout"
 	refreshuc "github.com/zchelalo/expense-control-back/internal/modules/auth/application/refresh"
 	registeruc "github.com/zchelalo/expense-control-back/internal/modules/auth/application/register"
+	movementhttp "github.com/zchelalo/expense-control-back/internal/modules/movement/adapters/http/v1"
+	movementpg "github.com/zchelalo/expense-control-back/internal/modules/movement/adapters/persistence/postgres"
+	movementbyiduc "github.com/zchelalo/expense-control-back/internal/modules/movement/application/byid"
+	movementcreateuc "github.com/zchelalo/expense-control-back/internal/modules/movement/application/create"
+	movementdeleteuc "github.com/zchelalo/expense-control-back/internal/modules/movement/application/delete"
+	movementlistuc "github.com/zchelalo/expense-control-back/internal/modules/movement/application/list"
 	"github.com/zchelalo/expense-control-back/internal/server"
 	clk "github.com/zchelalo/expense-control-back/internal/shared/clock"
 	bcrypthasher "github.com/zchelalo/expense-control-back/internal/shared/crypto/password"
@@ -38,10 +44,10 @@ func InitApp(log *zap.Logger, cfg Config) (*App, error) {
 	}
 
 	keys, err := jwt.LoadKeys(jwt.KeyPaths{
-		AccessPrivatePath: cfg.JWTAccessPrivateKeyPath,
-		AccessPublicPath: cfg.JWTAccessPublicKeyPath,
+		AccessPrivatePath:  cfg.JWTAccessPrivateKeyPath,
+		AccessPublicPath:   cfg.JWTAccessPublicKeyPath,
 		RefreshPrivatePath: cfg.JWTRefreshPrivateKeyPath,
-		RefreshPublicPath: cfg.JWTRefreshPublicKeyPath,
+		RefreshPublicPath:  cfg.JWTRefreshPublicKeyPath,
 	})
 	if err != nil {
 		db.Close()
@@ -87,7 +93,46 @@ func InitApp(log *zap.Logger, cfg Config) (*App, error) {
 		mdw,
 	)
 
-	s, err := server.New(address, mdw, authV1.Register, accountV1.Register)
+	movementStore := movementpg.NewMovementRepo(db)
+	movementQuery := movementpg.NewQueryRepo(db)
+	movementUserStore := movementpg.NewUserRepo(db)
+	movementAccountStore := movementpg.NewAccountRepo(db)
+	movementTypeStore := movementpg.NewMovementTypeRepo(db)
+	movementCategoryStore := movementpg.NewCategoryRepo(db)
+
+	createMovementUseCase := movementcreateuc.New(
+		movementStore,
+		movementUserStore,
+		movementAccountStore,
+		movementTypeStore,
+		movementCategoryStore,
+		clock,
+		ids,
+	)
+	listMovementsUseCase := movementlistuc.New(
+		movementQuery,
+		movementUserStore,
+		cfg.PaginatorLimitDefault,
+	)
+	byIDMovementUseCase := movementbyiduc.New(
+		movementQuery,
+		movementUserStore,
+	)
+	deleteMovementUseCase := movementdeleteuc.New(
+		movementStore,
+		movementQuery,
+		movementUserStore,
+		clock,
+	)
+	movementV1 := movementhttp.NewRouter(
+		createMovementUseCase,
+		listMovementsUseCase,
+		byIDMovementUseCase,
+		deleteMovementUseCase,
+		mdw,
+	)
+
+	s, err := server.New(address, mdw, authV1.Register, accountV1.Register, movementV1.Register)
 	if err != nil {
 		db.Close()
 		return nil, fmt.Errorf("cannot create server: %w", err)
