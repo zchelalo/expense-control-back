@@ -5,18 +5,18 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/zchelalo/expense-control-back/internal/middleware"
 	"github.com/zchelalo/expense-control-back/internal/modules/account/application/updatename"
+	uuidparse "github.com/zchelalo/expense-control-back/pkg/parse"
 	"github.com/zchelalo/expense-control-back/pkg/response"
 )
 
 type updateNameRequest struct {
-	Name    string  `json:"name"`
+	Name string `json:"name"`
 }
 
 type updateNameResponse struct {
-	Account   accountResponse `json:"account"`
+	Account accountResponse `json:"account"`
 }
 
 func (h *Handler) UpdateName(w http.ResponseWriter, r *http.Request) {
@@ -32,7 +32,7 @@ func (h *Handler) UpdateName(w http.ResponseWriter, r *http.Request) {
 	}
 
 	accountIDString := r.PathValue("id")
-	accountIDUUID, err := uuid.Parse(accountIDString)
+	accountIDUUID, err := uuidparse.UUID(accountIDString)
 	if err != nil {
 		response.WriteError(w, http.StatusBadRequest, response.APIError{
 			Code:    "invalid_account_id",

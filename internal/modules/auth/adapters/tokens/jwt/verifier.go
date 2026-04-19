@@ -7,8 +7,8 @@ import (
 	"time"
 
 	jwtlib "github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/ports"
+	uuidparse "github.com/zchelalo/expense-control-back/pkg/parse"
 )
 
 type Verifier struct {
@@ -42,7 +42,7 @@ func (v *Verifier) VerifyAccess(_ context.Context, token string) (ports.AccessCl
 		return ports.AccessClaims{}, ports.ErrTokenInvalid{Name: "access"}
 	}
 
-	parsedSub, err := uuid.Parse(c.Sub)
+	parsedSub, err := uuidparse.UUID(c.Sub)
 	if err != nil {
 		return ports.AccessClaims{}, ports.ErrTokenMalformed{Name: "access"}
 	}
@@ -80,17 +80,17 @@ func (v *Verifier) VerifyRefresh(_ context.Context, token string) (ports.Refresh
 		return ports.RefreshClaims{}, ports.ErrTokenInvalid{Name: "refresh"}
 	}
 
-	parsedSid, err := uuid.Parse(c.SID)
+	parsedSid, err := uuidparse.UUID(c.SID)
 	if err != nil {
 		return ports.RefreshClaims{}, ports.ErrTokenMalformed{Name: "refresh"}
 	}
 
-	parsedSub, err := uuid.Parse(c.Sub)
+	parsedSub, err := uuidparse.UUID(c.Sub)
 	if err != nil {
 		return ports.RefreshClaims{}, ports.ErrTokenMalformed{Name: "refresh"}
 	}
 
-	parsedJti, err := uuid.Parse(c.JTI)
+	parsedJti, err := uuidparse.UUID(c.JTI)
 	if err != nil {
 		return ports.RefreshClaims{}, ports.ErrTokenMalformed{Name: "refresh"}
 	}

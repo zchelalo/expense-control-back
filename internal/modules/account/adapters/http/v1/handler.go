@@ -9,11 +9,11 @@ import (
 )
 
 type Handler struct {
-	createUC *create.UseCase
-	listUC   *list.UseCase
-	byIDUC   *byid.UseCase
+	createUC     *create.UseCase
+	listUC       *list.UseCase
+	byIDUC       *byid.UseCase
 	updateNameUC *updatename.UseCase
-	deleteUC *delete.UseCase
+	deleteUC     *delete.UseCase
 }
 
 func NewHandler(
@@ -24,10 +24,10 @@ func NewHandler(
 	deleteUC *delete.UseCase,
 ) *Handler {
 	return &Handler{
-		createUC:   createUC,
-		listUC:     listUC,
-		byIDUC:     byIDUC,
+		createUC:     createUC,
+		listUC:       listUC,
+		byIDUC:       byIDUC,
 		updateNameUC: updateNameUC,
-		deleteUC:   deleteUC,
+		deleteUC:     deleteUC,
 	}
 }

@@ -3,9 +3,9 @@ package v1
 import (
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/zchelalo/expense-control-back/internal/middleware"
 	"github.com/zchelalo/expense-control-back/internal/modules/account/application/delete"
+	uuidparse "github.com/zchelalo/expense-control-back/pkg/parse"
 	"github.com/zchelalo/expense-control-back/pkg/response"
 )
 
@@ -26,7 +26,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	accountIDString := r.PathValue("id")
-	accountIDUUID, err := uuid.Parse(accountIDString)
+	accountIDUUID, err := uuidparse.UUID(accountIDString)
 	if err != nil {
 		response.WriteError(w, http.StatusBadRequest, response.APIError{
 			Code:    "invalid_account_id",

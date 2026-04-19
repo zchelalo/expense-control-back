@@ -32,23 +32,39 @@ func LoadKeys(paths KeyPaths) (*Keys, error) {
 	}
 
 	ap, err := read(paths.AccessPrivatePath)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	apu, err := read(paths.AccessPublicPath)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	rp, err := read(paths.RefreshPrivatePath)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	rpu, err := read(paths.RefreshPublicPath)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 
 	accessPriv, err := jwtlib.ParseRSAPrivateKeyFromPEM(ap)
-	if err != nil { return nil, fmt.Errorf("parse access private: %w", err) }
+	if err != nil {
+		return nil, fmt.Errorf("parse access private: %w", err)
+	}
 	accessPub, err := jwtlib.ParseRSAPublicKeyFromPEM(apu)
-	if err != nil { return nil, fmt.Errorf("parse access public: %w", err) }
+	if err != nil {
+		return nil, fmt.Errorf("parse access public: %w", err)
+	}
 
 	refreshPriv, err := jwtlib.ParseRSAPrivateKeyFromPEM(rp)
-	if err != nil { return nil, fmt.Errorf("parse refresh private: %w", err) }
+	if err != nil {
+		return nil, fmt.Errorf("parse refresh private: %w", err)
+	}
 	refreshPub, err := jwtlib.ParseRSAPublicKeyFromPEM(rpu)
-	if err != nil { return nil, fmt.Errorf("parse refresh public: %w", err) }
+	if err != nil {
+		return nil, fmt.Errorf("parse refresh public: %w", err)
+	}
 
 	return &Keys{
 		AccessPrivate:  accessPriv,
