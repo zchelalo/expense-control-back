@@ -1,17 +1,10 @@
 package postgres
 
 import (
-	"fmt"
-	"time"
-
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/zchelalo/expense-control-back/internal/modules/movement/domain"
+	"github.com/zchelalo/expense-control-back/internal/shared/postgresutil"
 )
-
-type uuidValuer interface {
-	UUID() uuid.UUID
-}
 
 type movementDetailsFields struct {
 	ID               pgtype.UUID
@@ -27,38 +20,6 @@ type movementDetailsFields struct {
 	MovementTypeKey  string
 	MovementTypeName string
 	CategoryName     string
-}
-
-func toPgUUID(id uuidValuer) pgtype.UUID {
-	return pgtype.UUID{
-		Bytes: id.UUID(),
-		Valid: true,
-	}
-}
-
-func toPgTimestamptz(t time.Time) pgtype.Timestamptz {
-	return pgtype.Timestamptz{
-		Time:  t,
-		Valid: true,
-	}
-}
-
-func toPgNumeric(value float64) (pgtype.Numeric, error) {
-	var numeric pgtype.Numeric
-	if err := numeric.Scan(fmt.Sprintf("%f", value)); err != nil {
-		return pgtype.Numeric{}, err
-	}
-
-	return numeric, nil
-}
-
-func parseDeletedAt(deletedAt pgtype.Timestamptz) *time.Time {
-	if !deletedAt.Valid {
-		return nil
-	}
-
-	t := deletedAt.Time
-	return &t
 }
 
 func hydrateMovement(
@@ -78,12 +39,12 @@ func hydrateMovement(
 		return domain.Movement{}, err
 	}
 
-	parsedAmountValue, err := amount.Float64Value()
+	parsedAmountValue, err := postgresutil.NumericToFloat64(amount)
 	if err != nil {
 		return domain.Movement{}, err
 	}
 
-	parsedAmount, err := domain.NewAmount(parsedAmountValue.Float64)
+	parsedAmount, err := domain.NewAmount(parsedAmountValue)
 	if err != nil {
 		return domain.Movement{}, err
 	}
@@ -123,7 +84,7 @@ func hydrateMovement(
 		parsedUserID,
 		createdAt.Time,
 		updatedAt.Time,
-		parseDeletedAt(deletedAt),
+		postgresutil.TimestamptzPtr(deletedAt),
 	), nil
 }
 

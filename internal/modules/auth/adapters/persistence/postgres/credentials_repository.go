@@ -3,47 +3,31 @@ package postgres
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
 	authdb "github.com/zchelalo/expense-control-back/internal/db/sqlc/auth"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/domain"
 	"github.com/zchelalo/expense-control-back/internal/modules/auth/ports"
+	pgutil "github.com/zchelalo/expense-control-back/internal/shared/postgresutil"
 )
 
 type CredentialRepo struct {
-  q *authdb.Queries
+	q *authdb.Queries
 }
 
 func NewCredentialRepo(db authdb.DBTX) *CredentialRepo {
-  return &CredentialRepo{q: authdb.New(db)}
+	return &CredentialRepo{q: authdb.New(db)}
 }
 
 func (r *CredentialRepo) CreateAccount(ctx context.Context, acc domain.Account) (domain.SubjectID, error) {
-	var deletedAt pgtype.Timestamptz
-	if acc.DeletedAt() != nil {
-		deletedAt = pgtype.Timestamptz{Time: *acc.DeletedAt(), Valid: true}
-	} else {
-		deletedAt = pgtype.Timestamptz{Valid: false}
-	}
 	params := authdb.CreateUserParams{
-		ID: pgtype.UUID{
-			Bytes: acc.ID().UUID(),
-			Valid: true,
-		},
+		ID:        pgutil.UUID(acc.ID()),
 		Email:     acc.Email().String(),
 		Password:  acc.PasswordHash().String(),
-		CreatedAt: pgtype.Timestamptz{
-			Time: acc.CreatedAt(),
-			Valid: true,
-		},
-		UpdatedAt: pgtype.Timestamptz{
-			Time: acc.UpdatedAt(),
-			Valid: true,
-		},
-		DeletedAt: deletedAt,
+		CreatedAt: pgutil.Timestamptz(acc.CreatedAt()),
+		UpdatedAt: pgutil.Timestamptz(acc.UpdatedAt()),
+		DeletedAt: pgutil.OptionalTimestamptz(acc.DeletedAt()),
 	}
 
 	subID, err := r.q.CreateUser(ctx, params)
@@ -69,7 +53,7 @@ func (r *CredentialRepo) ByEmail(ctx context.Context, email domain.Email) (domai
 	user, err := r.q.GetUserByEmail(ctx, email.String())
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Account{}, ports.ErrNotFound{Name:"user"}
+			return domain.Account{}, ports.ErrNotFound{Name: "user"}
 		}
 		return domain.Account{}, err
 	}
@@ -86,18 +70,13 @@ func (r *CredentialRepo) ByEmail(ctx context.Context, email domain.Email) (domai
 	if err != nil {
 		return domain.Account{}, err
 	}
-	var parsedDeletedAt *time.Time
-	if user.DeletedAt.Valid {
-		t := user.DeletedAt.Time
-		parsedDeletedAt = &t
-	}
 	account := domain.RehydrateAccount(
 		parsedSubID,
-    parsedEmail,
+		parsedEmail,
 		parsedPasswordHash,
 		user.CreatedAt.Time,
 		user.UpdatedAt.Time,
-		parsedDeletedAt,
+		pgutil.TimestamptzPtr(user.DeletedAt),
 	)
 
 	return account, nil

@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -11,63 +10,42 @@ import (
 	accountdb "github.com/zchelalo/expense-control-back/internal/db/sqlc/account"
 	"github.com/zchelalo/expense-control-back/internal/modules/account/domain"
 	"github.com/zchelalo/expense-control-back/internal/modules/account/ports"
+	pgutil "github.com/zchelalo/expense-control-back/internal/shared/postgresutil"
 )
 
 type AccountRepo struct {
-  q *accountdb.Queries
+	q *accountdb.Queries
 }
 
 func NewAccountRepo(db accountdb.DBTX) *AccountRepo {
-  return &AccountRepo{q: accountdb.New(db)}
+	return &AccountRepo{q: accountdb.New(db)}
 }
 
 func (r *AccountRepo) Create(ctx context.Context, s domain.Account) error {
-	var deletedAt pgtype.Timestamptz
-	if s.DeletedAt() != nil {
-		deletedAt = pgtype.Timestamptz{Time: *s.DeletedAt(), Valid: true}
-	} else {
-		deletedAt = pgtype.Timestamptz{Valid: false}
-	}
-
-	var balance pgtype.Numeric
-	if err := balance.Scan(fmt.Sprintf("%f", s.Balance().Float64())); err != nil {
+	balance, err := pgutil.NumericFromFloat64(s.Balance().Float64())
+	if err != nil {
 		return err
 	}
 
 	params := accountdb.CreateAccountParams{
-		ID: pgtype.UUID{
-			Bytes: s.ID().UUID(),
-			Valid: true,
-		},
-		Name: s.Name().String(),
-		Balance: balance,
-		UserID: pgtype.UUID{
-			Bytes: s.UserID().UUID(),
-			Valid: true,
-		},
-		CreatedAt: pgtype.Timestamptz{
-			Time: s.CreatedAt(),
-			Valid: true,
-		},
-		UpdatedAt: pgtype.Timestamptz{
-			Time: s.UpdatedAt(),
-			Valid: true,
-		},
-		DeletedAt: deletedAt,
+		ID:        pgutil.UUID(s.ID()),
+		Name:      s.Name().String(),
+		Balance:   balance,
+		UserID:    pgutil.UUID(s.UserID()),
+		CreatedAt: pgutil.Timestamptz(s.CreatedAt()),
+		UpdatedAt: pgutil.Timestamptz(s.UpdatedAt()),
+		DeletedAt: pgutil.OptionalTimestamptz(s.DeletedAt()),
 	}
 
-	err := r.q.CreateAccount(ctx, params)
+	err = r.q.CreateAccount(ctx, params)
 	return err
 }
 
 func (r *AccountRepo) ByID(ctx context.Context, id domain.AccountID) (domain.Account, error) {
-	account, err := r.q.GetAccountByID(ctx, pgtype.UUID{
-		Bytes: id.UUID(),
-		Valid: true,
-	})
+	account, err := r.q.GetAccountByID(ctx, pgutil.UUID(id))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.Account{}, ports.ErrNotFound{Name:"account"}
+			return domain.Account{}, ports.ErrNotFound{Name: "account"}
 		}
 		return domain.Account{}, err
 	}
@@ -82,20 +60,14 @@ func (r *AccountRepo) ByID(ctx context.Context, id domain.AccountID) (domain.Acc
 		return domain.Account{}, err
 	}
 
-	balance, err := account.Balance.Float64Value()
+	balance, err := pgutil.NumericToFloat64(account.Balance)
 	if err != nil {
 		return domain.Account{}, err
 	}
 
-	parsedBalance, err := domain.NewBalance(balance.Float64)
+	parsedBalance, err := domain.NewBalance(balance)
 	if err != nil {
 		return domain.Account{}, err
-	}
-
-	var parsedDeletedAt *time.Time
-	if account.DeletedAt.Valid {
-		t := account.DeletedAt.Time
-		parsedDeletedAt = &t
 	}
 
 	parsedUserID, err := domain.NewUserID(account.UserID.Bytes)
@@ -110,7 +82,7 @@ func (r *AccountRepo) ByID(ctx context.Context, id domain.AccountID) (domain.Acc
 		parsedUserID,
 		account.CreatedAt.Time,
 		account.UpdatedAt.Time,
-		parsedDeletedAt,
+		pgutil.TimestamptzPtr(account.DeletedAt),
 	), nil
 }
 func (r *AccountRepo) ListByUserID(ctx context.Context, userID domain.UserID, name *string, createdAt *time.Time, accountID *domain.AccountID, limit int, isBefore bool) ([]domain.Account, error) {
@@ -126,43 +98,25 @@ func (r *AccountRepo) ListByUserID(ctx context.Context, userID domain.UserID, na
 
 	if isBefore {
 		accounts, err = r.q.ListAccountsByUserIDBefore(ctx, accountdb.ListAccountsByUserIDBeforeParams{
-			UserID: pgtype.UUID{
-				Bytes: userID.UUID(),
-				Valid: true,
-			},
-			Column2: pgtype.Timestamptz{
-				Time:  *createdAt,
-				Valid: true,
-			},
-			Column3: pgtype.UUID{
-				Bytes: accountID.UUID(),
-				Valid: true,
-			},
-			Limit:  int32(limit),
-			Search: nameFilter,
+			UserID:  pgutil.UUID(userID),
+			Column2: pgutil.Timestamptz(*createdAt),
+			Column3: pgutil.UUID(*accountID),
+			Limit:   int32(limit),
+			Search:  nameFilter,
 		})
 	} else {
 		params := accountdb.ListAccountsByUserIDAfterParams{
-			UserID: pgtype.UUID{
-				Bytes: userID.UUID(),
-				Valid: true,
-			},
+			UserID: pgutil.UUID(userID),
 			Limit:  int32(limit),
 			Search: nameFilter,
 		}
 
 		if createdAt != nil {
-			params.Column2 = pgtype.Timestamptz{
-				Time:  *createdAt,
-				Valid: true,
-			}
+			params.Column2 = pgutil.Timestamptz(*createdAt)
 		}
 
 		if accountID != nil {
-			params.Column3 = pgtype.UUID{
-				Bytes: accountID.UUID(),
-				Valid: true,
-			}
+			params.Column3 = pgutil.UUID(*accountID)
 		}
 
 		accounts, err = r.q.ListAccountsByUserIDAfter(ctx, params)
@@ -190,20 +144,14 @@ func (r *AccountRepo) ListByUserID(ctx context.Context, userID domain.UserID, na
 			return nil, err
 		}
 
-		balance, err := account.Balance.Float64Value()
+		balance, err := pgutil.NumericToFloat64(account.Balance)
 		if err != nil {
 			return nil, err
 		}
 
-		parsedBalance, err := domain.NewBalance(balance.Float64)
+		parsedBalance, err := domain.NewBalance(balance)
 		if err != nil {
 			return nil, err
-		}
-
-		var parsedDeletedAt *time.Time
-		if account.DeletedAt.Valid {
-			t := account.DeletedAt.Time
-			parsedDeletedAt = &t
 		}
 
 		parsedUserID, err := domain.NewUserID(account.UserID.Bytes)
@@ -218,7 +166,7 @@ func (r *AccountRepo) ListByUserID(ctx context.Context, userID domain.UserID, na
 			parsedUserID,
 			account.CreatedAt.Time,
 			account.UpdatedAt.Time,
-			parsedDeletedAt,
+			pgutil.TimestamptzPtr(account.DeletedAt),
 		)
 	}
 
@@ -227,50 +175,29 @@ func (r *AccountRepo) ListByUserID(ctx context.Context, userID domain.UserID, na
 
 func (r *AccountRepo) UpdateName(ctx context.Context, accountID domain.AccountID, name domain.Name, now time.Time) error {
 	return r.q.UpdateAccountName(ctx, accountdb.UpdateAccountNameParams{
-		ID: pgtype.UUID{
-			Bytes: accountID.UUID(),
-			Valid: true,
-		},
-		Name: name.String(),
-		UpdatedAt: pgtype.Timestamptz{
-			Time: now,
-			Valid: true,
-		},
+		ID:        pgutil.UUID(accountID),
+		Name:      name.String(),
+		UpdatedAt: pgutil.Timestamptz(now),
 	})
 }
 
 func (r *AccountRepo) UpdateBalance(ctx context.Context, accountID domain.AccountID, balance domain.Balance, now time.Time) error {
-	var balanceNumeric pgtype.Numeric
-	if err := balanceNumeric.Scan(fmt.Sprintf("%f", balance.Float64())); err != nil {
+	balanceNumeric, err := pgutil.NumericFromFloat64(balance.Float64())
+	if err != nil {
 		return err
 	}
 
 	return r.q.UpdateAccountBalance(ctx, accountdb.UpdateAccountBalanceParams{
-		ID: pgtype.UUID{
-			Bytes: accountID.UUID(),
-			Valid: true,
-		},
-		Balance: balanceNumeric,
-		UpdatedAt: pgtype.Timestamptz{
-			Time: now,
-			Valid: true,
-		},
+		ID:        pgutil.UUID(accountID),
+		Balance:   balanceNumeric,
+		UpdatedAt: pgutil.Timestamptz(now),
 	})
 }
 
 func (r *AccountRepo) Delete(ctx context.Context, accountID domain.AccountID, now time.Time) error {
 	return r.q.DeleteAccount(ctx, accountdb.DeleteAccountParams{
-		ID: pgtype.UUID{
-			Bytes: accountID.UUID(),
-			Valid: true,
-		},
-		DeletedAt: pgtype.Timestamptz{
-			Time: now,
-			Valid: true,
-		},
-		UpdatedAt: pgtype.Timestamptz{
-			Time: now,
-			Valid: true,
-		},
+		ID:        pgutil.UUID(accountID),
+		DeletedAt: pgutil.Timestamptz(now),
+		UpdatedAt: pgutil.Timestamptz(now),
 	})
 }

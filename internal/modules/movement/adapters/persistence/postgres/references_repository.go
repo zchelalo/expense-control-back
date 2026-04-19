@@ -8,6 +8,7 @@ import (
 	movementdb "github.com/zchelalo/expense-control-back/internal/db/sqlc/movement"
 	"github.com/zchelalo/expense-control-back/internal/modules/movement/domain"
 	"github.com/zchelalo/expense-control-back/internal/modules/movement/ports"
+	pgutil "github.com/zchelalo/expense-control-back/internal/shared/postgresutil"
 )
 
 type UserRepo struct {
@@ -19,7 +20,7 @@ func NewUserRepo(db movementdb.DBTX) *UserRepo {
 }
 
 func (r *UserRepo) Exists(ctx context.Context, userID domain.UserID) (bool, error) {
-	exists, err := r.q.UserExists(ctx, toPgUUID(userID))
+	exists, err := r.q.UserExists(ctx, pgutil.UUID(userID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return false, nil
@@ -40,8 +41,8 @@ func NewAccountRepo(db movementdb.DBTX) *AccountRepo {
 
 func (r *AccountRepo) ExistsByUserID(ctx context.Context, accountID domain.AccountID, userID domain.UserID) (bool, error) {
 	exists, err := r.q.AccountExistsByUserID(ctx, movementdb.AccountExistsByUserIDParams{
-		ID:     toPgUUID(accountID),
-		UserID: toPgUUID(userID),
+		ID:     pgutil.UUID(accountID),
+		UserID: pgutil.UUID(userID),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -62,7 +63,7 @@ func NewMovementTypeRepo(db movementdb.DBTX) *MovementTypeRepo {
 }
 
 func (r *MovementTypeRepo) ByID(ctx context.Context, movementTypeID domain.MovementTypeID) (domain.MovementType, error) {
-	movementType, err := r.q.GetMovementTypeByID(ctx, toPgUUID(movementTypeID))
+	movementType, err := r.q.GetMovementTypeByID(ctx, pgutil.UUID(movementTypeID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.MovementType{}, ports.ErrNotFound{Name: "movement type"}
@@ -86,7 +87,7 @@ func NewCategoryRepo(db movementdb.DBTX) *CategoryRepo {
 }
 
 func (r *CategoryRepo) ByID(ctx context.Context, categoryID domain.CategoryID) (domain.Category, error) {
-	category, err := r.q.GetCategoryByID(ctx, toPgUUID(categoryID))
+	category, err := r.q.GetCategoryByID(ctx, pgutil.UUID(categoryID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.Category{}, ports.ErrNotFound{Name: "category"}

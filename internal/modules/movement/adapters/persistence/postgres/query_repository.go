@@ -9,6 +9,7 @@ import (
 	movementdb "github.com/zchelalo/expense-control-back/internal/db/sqlc/movement"
 	"github.com/zchelalo/expense-control-back/internal/modules/movement/domain"
 	"github.com/zchelalo/expense-control-back/internal/modules/movement/ports"
+	pgutil "github.com/zchelalo/expense-control-back/internal/shared/postgresutil"
 )
 
 type QueryRepo struct {
@@ -21,8 +22,8 @@ func NewQueryRepo(db movementdb.DBTX) *QueryRepo {
 
 func (r *QueryRepo) ByIDForUser(ctx context.Context, movementID domain.MovementID, userID domain.UserID) (domain.MovementDetails, error) {
 	row, err := r.q.GetMovementDetailsByIDForUser(ctx, movementdb.GetMovementDetailsByIDForUserParams{
-		ID:     toPgUUID(movementID),
-		UserID: toPgUUID(userID),
+		ID:     pgutil.UUID(movementID),
+		UserID: pgutil.UUID(userID),
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -58,7 +59,7 @@ func (r *QueryRepo) ListByUserID(ctx context.Context, userID domain.UserID, filt
 
 func (r *QueryRepo) listAfter(ctx context.Context, userID domain.UserID, filter ports.ListMovementsFilter) ([]domain.MovementDetails, error) {
 	cursorCreatedAt, cursorMovementID := buildAfterCursor(filter)
-	user := toPgUUID(userID)
+	user := pgutil.UUID(userID)
 	limit := int32(filter.Limit)
 
 	switch countActiveFilters(filter) {
@@ -93,7 +94,7 @@ func (r *QueryRepo) listAfter(ctx context.Context, userID domain.UserID, filter 
 	case 1:
 		if filter.AccountID != nil {
 			rows, err := r.q.ListMovementsByUserIDAndAccountIDAfter(ctx, movementdb.ListMovementsByUserIDAndAccountIDAfterParams{
-				AccountID:        toPgUUID(*filter.AccountID),
+				AccountID:        pgutil.UUID(*filter.AccountID),
 				UserID:           user,
 				CursorCreatedAt:  cursorCreatedAt,
 				CursorMovementID: cursorMovementID,
@@ -125,7 +126,7 @@ func (r *QueryRepo) listAfter(ctx context.Context, userID domain.UserID, filter 
 		if filter.CategoryID != nil {
 			rows, err := r.q.ListMovementsByUserIDAndCategoryIDAfter(ctx, movementdb.ListMovementsByUserIDAndCategoryIDAfterParams{
 				UserID:           user,
-				CategoryID:       toPgUUID(*filter.CategoryID),
+				CategoryID:       pgutil.UUID(*filter.CategoryID),
 				CursorCreatedAt:  cursorCreatedAt,
 				CursorMovementID: cursorMovementID,
 				LimitCount:       limit,
@@ -155,7 +156,7 @@ func (r *QueryRepo) listAfter(ctx context.Context, userID domain.UserID, filter 
 
 		rows, err := r.q.ListMovementsByUserIDAndMovementTypeIDAfter(ctx, movementdb.ListMovementsByUserIDAndMovementTypeIDAfterParams{
 			UserID:           user,
-			MovementTypeID:   toPgUUID(*filter.MovementTypeID),
+			MovementTypeID:   pgutil.UUID(*filter.MovementTypeID),
 			CursorCreatedAt:  cursorCreatedAt,
 			CursorMovementID: cursorMovementID,
 			LimitCount:       limit,
@@ -184,9 +185,9 @@ func (r *QueryRepo) listAfter(ctx context.Context, userID domain.UserID, filter 
 	default:
 		rows, err := r.q.ListMovementsByUserIDFilteredAfter(ctx, movementdb.ListMovementsByUserIDFilteredAfterParams{
 			UserID:           user,
-			AccountID:        optionalAccountID(filter.AccountID),
-			CategoryID:       optionalCategoryID(filter.CategoryID),
-			MovementTypeID:   optionalMovementTypeID(filter.MovementTypeID),
+			AccountID:        pgutil.OptionalUUID(filter.AccountID),
+			CategoryID:       pgutil.OptionalUUID(filter.CategoryID),
+			MovementTypeID:   pgutil.OptionalUUID(filter.MovementTypeID),
 			CursorCreatedAt:  cursorCreatedAt,
 			CursorMovementID: cursorMovementID,
 			LimitCount:       limit,
@@ -217,7 +218,7 @@ func (r *QueryRepo) listAfter(ctx context.Context, userID domain.UserID, filter 
 
 func (r *QueryRepo) listBefore(ctx context.Context, userID domain.UserID, filter ports.ListMovementsFilter) ([]domain.MovementDetails, error) {
 	cursorCreatedAt, cursorMovementID := buildBeforeCursor(filter)
-	user := toPgUUID(userID)
+	user := pgutil.UUID(userID)
 	limit := int32(filter.Limit)
 
 	var (
@@ -258,7 +259,7 @@ func (r *QueryRepo) listBefore(ctx context.Context, userID domain.UserID, filter
 		switch {
 		case filter.AccountID != nil:
 			rows, queryErr := r.q.ListMovementsByUserIDAndAccountIDBefore(ctx, movementdb.ListMovementsByUserIDAndAccountIDBeforeParams{
-				AccountID:        toPgUUID(*filter.AccountID),
+				AccountID:        pgutil.UUID(*filter.AccountID),
 				UserID:           user,
 				CursorCreatedAt:  cursorCreatedAt,
 				CursorMovementID: cursorMovementID,
@@ -288,7 +289,7 @@ func (r *QueryRepo) listBefore(ctx context.Context, userID domain.UserID, filter
 		case filter.CategoryID != nil:
 			rows, queryErr := r.q.ListMovementsByUserIDAndCategoryIDBefore(ctx, movementdb.ListMovementsByUserIDAndCategoryIDBeforeParams{
 				UserID:           user,
-				CategoryID:       toPgUUID(*filter.CategoryID),
+				CategoryID:       pgutil.UUID(*filter.CategoryID),
 				CursorCreatedAt:  cursorCreatedAt,
 				CursorMovementID: cursorMovementID,
 				LimitCount:       limit,
@@ -317,7 +318,7 @@ func (r *QueryRepo) listBefore(ctx context.Context, userID domain.UserID, filter
 		default:
 			rows, queryErr := r.q.ListMovementsByUserIDAndMovementTypeIDBefore(ctx, movementdb.ListMovementsByUserIDAndMovementTypeIDBeforeParams{
 				UserID:           user,
-				MovementTypeID:   toPgUUID(*filter.MovementTypeID),
+				MovementTypeID:   pgutil.UUID(*filter.MovementTypeID),
 				CursorCreatedAt:  cursorCreatedAt,
 				CursorMovementID: cursorMovementID,
 				LimitCount:       limit,
@@ -347,9 +348,9 @@ func (r *QueryRepo) listBefore(ctx context.Context, userID domain.UserID, filter
 	default:
 		rows, queryErr := r.q.ListMovementsByUserIDFilteredBefore(ctx, movementdb.ListMovementsByUserIDFilteredBeforeParams{
 			UserID:           user,
-			AccountID:        optionalAccountID(filter.AccountID),
-			CategoryID:       optionalCategoryID(filter.CategoryID),
-			MovementTypeID:   optionalMovementTypeID(filter.MovementTypeID),
+			AccountID:        pgutil.OptionalUUID(filter.AccountID),
+			CategoryID:       pgutil.OptionalUUID(filter.CategoryID),
+			MovementTypeID:   pgutil.OptionalUUID(filter.MovementTypeID),
 			CursorCreatedAt:  cursorCreatedAt,
 			CursorMovementID: cursorMovementID,
 			LimitCount:       limit,
@@ -401,53 +402,9 @@ func countActiveFilters(filter ports.ListMovementsFilter) int {
 }
 
 func buildAfterCursor(filter ports.ListMovementsFilter) (pgtype.Timestamptz, pgtype.UUID) {
-	var createdAt pgtype.Timestamptz
-	if filter.CreatedAt != nil {
-		createdAt = toPgTimestamptz(*filter.CreatedAt)
-	}
-
-	var movementID pgtype.UUID
-	if filter.MovementID != nil {
-		movementID = toPgUUID(*filter.MovementID)
-	}
-
-	return createdAt, movementID
+	return pgutil.OptionalTimestamptz(filter.CreatedAt), pgutil.OptionalUUID(filter.MovementID)
 }
 
 func buildBeforeCursor(filter ports.ListMovementsFilter) (pgtype.Timestamptz, pgtype.UUID) {
-	var createdAt pgtype.Timestamptz
-	if filter.CreatedAt != nil {
-		createdAt = toPgTimestamptz(*filter.CreatedAt)
-	}
-
-	var movementID pgtype.UUID
-	if filter.MovementID != nil {
-		movementID = toPgUUID(*filter.MovementID)
-	}
-
-	return createdAt, movementID
-}
-
-func optionalAccountID(accountID *domain.AccountID) pgtype.UUID {
-	if accountID == nil {
-		return pgtype.UUID{Valid: false}
-	}
-
-	return toPgUUID(*accountID)
-}
-
-func optionalCategoryID(categoryID *domain.CategoryID) pgtype.UUID {
-	if categoryID == nil {
-		return pgtype.UUID{Valid: false}
-	}
-
-	return toPgUUID(*categoryID)
-}
-
-func optionalMovementTypeID(movementTypeID *domain.MovementTypeID) pgtype.UUID {
-	if movementTypeID == nil {
-		return pgtype.UUID{Valid: false}
-	}
-
-	return toPgUUID(*movementTypeID)
+	return pgutil.OptionalTimestamptz(filter.CreatedAt), pgutil.OptionalUUID(filter.MovementID)
 }
