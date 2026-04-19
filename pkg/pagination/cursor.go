@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	uuidparse "github.com/zchelalo/expense-control-back/pkg/parse"
 )
 
 func EncodeCursor(t time.Time, id uuid.UUID) string {
@@ -30,7 +31,7 @@ func DecodeCursor(cursor string) (time.Time, uuid.UUID, error) {
 		return time.Time{}, uuid.Nil, err
 	}
 
-	id, err := uuid.Parse(parts[1])
+	id, err := uuidparse.UUID(parts[1])
 	if err != nil {
 		return time.Time{}, uuid.Nil, err
 	}
