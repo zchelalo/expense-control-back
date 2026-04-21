@@ -150,7 +150,7 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 		return Result{}, err
 	}
 
-	if _, err := uc.categories.ByID(ctx, categoryID); err != nil {
+	if _, err := uc.categories.ByIDForUser(ctx, categoryID, userID); err != nil {
 		log.Error("failed to get category",
 			zap.String("stage", "get_category"),
 			zap.Error(err),

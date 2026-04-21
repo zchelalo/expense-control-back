@@ -64,28 +64,33 @@ func (q *Queries) DecreaseAccountBalance(ctx context.Context, arg DecreaseAccoun
 	return result.RowsAffected(), nil
 }
 
-const getCategoryByID = `-- name: GetCategoryByID :one
+const getCategoryByIDForUser = `-- name: GetCategoryByIDForUser :one
 SELECT
-  id,
-  name,
-  created_at,
-  updated_at,
-  deleted_at
-FROM categories
-WHERE id = $1
-  AND deleted_at IS NULL
+  c.id,
+  c.name
+FROM user_categories uc
+INNER JOIN categories c
+  ON c.id = uc.category_id
+ AND c.deleted_at IS NULL
+WHERE uc.category_id = $1
+  AND uc.user_id = $2
+  AND uc.deleted_at IS NULL
 `
 
-func (q *Queries) GetCategoryByID(ctx context.Context, id pgtype.UUID) (Category, error) {
-	row := q.db.QueryRow(ctx, getCategoryByID, id)
-	var i Category
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-	)
+type GetCategoryByIDForUserParams struct {
+	CategoryID pgtype.UUID `json:"category_id"`
+	UserID     pgtype.UUID `json:"user_id"`
+}
+
+type GetCategoryByIDForUserRow struct {
+	ID   pgtype.UUID `json:"id"`
+	Name string      `json:"name"`
+}
+
+func (q *Queries) GetCategoryByIDForUser(ctx context.Context, arg GetCategoryByIDForUserParams) (GetCategoryByIDForUserRow, error) {
+	row := q.db.QueryRow(ctx, getCategoryByIDForUser, arg.CategoryID, arg.UserID)
+	var i GetCategoryByIDForUserRow
+	err := row.Scan(&i.ID, &i.Name)
 	return i, err
 }
 
@@ -146,6 +151,48 @@ func (q *Queries) IncreaseAccountBalance(ctx context.Context, arg IncreaseAccoun
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const listMovementTypes = `-- name: ListMovementTypes :many
+SELECT
+  id,
+  name,
+  key,
+  description,
+  created_at,
+  updated_at,
+  deleted_at
+FROM movement_types
+WHERE deleted_at IS NULL
+ORDER BY key ASC, id ASC
+`
+
+func (q *Queries) ListMovementTypes(ctx context.Context) ([]MovementType, error) {
+	rows, err := q.db.Query(ctx, listMovementTypes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []MovementType{}
+	for rows.Next() {
+		var i MovementType
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Key,
+			&i.Description,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const userExists = `-- name: UserExists :one

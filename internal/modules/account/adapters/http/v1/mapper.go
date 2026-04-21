@@ -5,7 +5,9 @@ import (
 	"net/http"
 
 	"github.com/zchelalo/expense-control-back/internal/modules/account/application/byid"
+	deleteaccount "github.com/zchelalo/expense-control-back/internal/modules/account/application/delete"
 	"github.com/zchelalo/expense-control-back/internal/modules/account/application/list"
+	"github.com/zchelalo/expense-control-back/internal/modules/account/application/updatename"
 	"github.com/zchelalo/expense-control-back/internal/modules/account/domain"
 	"github.com/zchelalo/expense-control-back/internal/modules/account/ports"
 	"github.com/zchelalo/expense-control-back/pkg/response"
@@ -54,8 +56,10 @@ func mapError(err error) (int, response.APIError) {
 		}
 	}
 
-	// Application by id errors
-	if errors.Is(err, byid.ErrAccountDoesntBelongToUser) {
+	// Ownership errors
+	if errors.Is(err, byid.ErrAccountDoesntBelongToUser) ||
+		errors.Is(err, deleteaccount.ErrAccountDoesntBelongToUser) ||
+		errors.Is(err, updatename.ErrAccountDoesntBelongToUser) {
 		return http.StatusForbidden, response.APIError{
 			Code:    "account_doesnt_belong_to_user",
 			Message: err.Error(),

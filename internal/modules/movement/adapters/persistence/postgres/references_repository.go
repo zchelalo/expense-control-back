@@ -86,8 +86,11 @@ func NewCategoryRepo(db movementdb.DBTX) *CategoryRepo {
 	return &CategoryRepo{q: movementdb.New(db)}
 }
 
-func (r *CategoryRepo) ByID(ctx context.Context, categoryID domain.CategoryID) (domain.Category, error) {
-	category, err := r.q.GetCategoryByID(ctx, pgutil.UUID(categoryID))
+func (r *CategoryRepo) ByIDForUser(ctx context.Context, categoryID domain.CategoryID, userID domain.UserID) (domain.Category, error) {
+	category, err := r.q.GetCategoryByIDForUser(ctx, movementdb.GetCategoryByIDForUserParams{
+		CategoryID: pgutil.UUID(categoryID),
+		UserID:     pgutil.UUID(userID),
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return domain.Category{}, ports.ErrNotFound{Name: "category"}

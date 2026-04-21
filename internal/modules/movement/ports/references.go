@@ -19,5 +19,5 @@ type MovementTypeRepository interface {
 }
 
 type CategoryRepository interface {
-	ByID(ctx context.Context, categoryID domain.CategoryID) (domain.Category, error)
+	ByIDForUser(ctx context.Context, categoryID domain.CategoryID, userID domain.UserID) (domain.Category, error)
 }

@@ -68,3 +68,11 @@ type User struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
 }
+
+type UserCategory struct {
+	UserID     pgtype.UUID        `json:"user_id"`
+	CategoryID pgtype.UUID        `json:"category_id"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt  pgtype.Timestamptz `json:"deleted_at"`
+}

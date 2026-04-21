@@ -77,6 +77,24 @@ func mapError(err error) (int, response.APIError) {
 	}
 
 	// Ports errors
+	if errors.As(err, &ports.ErrTokenExpired{}) {
+		return http.StatusUnauthorized, response.APIError{
+			Code:    "token_expired",
+			Message: err.Error(),
+		}
+	}
+	if errors.As(err, &ports.ErrTokenSignatureInvalid{}) {
+		return http.StatusUnauthorized, response.APIError{
+			Code:    "token_signature_invalid",
+			Message: err.Error(),
+		}
+	}
+	if errors.As(err, &ports.ErrTokenMalformed{}) {
+		return http.StatusUnauthorized, response.APIError{
+			Code:    "token_malformed",
+			Message: err.Error(),
+		}
+	}
 	if errors.As(err, &ports.ErrTokenInvalid{}) {
 		return http.StatusUnauthorized, response.APIError{
 			Code:    "token_invalid",
