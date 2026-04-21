@@ -11,22 +11,22 @@ import (
 )
 
 type UseCase struct {
-	accounts ports.AccountRepository
-	users ports.UserRepository
-	ids      idgen.Generator
+	accounts        ports.AccountRepository
+	users           ports.UserReferenceRepository
+	ids             idgen.Generator
 	pagLimitDefault int
 }
 
 func New(
 	accounts ports.AccountRepository,
-	users ports.UserRepository,
+	users ports.UserReferenceRepository,
 	ids idgen.Generator,
 	pagLimitDefault int,
 ) *UseCase {
 	return &UseCase{
-		accounts: accounts,
-		users: users,
-		ids:      ids,
+		accounts:        accounts,
+		users:           users,
+		ids:             ids,
 		pagLimitDefault: pagLimitDefault,
 	}
 }

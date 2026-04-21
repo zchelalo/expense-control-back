@@ -10,15 +10,15 @@ import (
 	pgutil "github.com/zchelalo/expense-control-back/internal/shared/postgresutil"
 )
 
-type UserRepo struct {
+type UserReferenceRepository struct {
 	q *categorydb.Queries
 }
 
-func NewUserRepo(db categorydb.DBTX) *UserRepo {
-	return &UserRepo{q: categorydb.New(db)}
+func NewUserReferenceRepository(db categorydb.DBTX) *UserReferenceRepository {
+	return &UserReferenceRepository{q: categorydb.New(db)}
 }
 
-func (r *UserRepo) Exists(ctx context.Context, userID domain.UserID) (bool, error) {
+func (r *UserReferenceRepository) Exists(ctx context.Context, userID domain.UserID) (bool, error) {
 	exists, err := r.q.UserExists(ctx, pgutil.UUID(userID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

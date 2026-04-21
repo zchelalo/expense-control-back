@@ -6,18 +6,18 @@ import (
 	"github.com/zchelalo/expense-control-back/internal/modules/movement/domain"
 )
 
-type UserRepository interface {
+type UserReferenceRepository interface {
 	Exists(ctx context.Context, userID domain.UserID) (bool, error)
 }
 
-type AccountRepository interface {
+type AccountReferenceRepository interface {
 	ExistsByUserID(ctx context.Context, accountID domain.AccountID, userID domain.UserID) (bool, error)
 }
 
-type MovementTypeRepository interface {
+type MovementTypeReferenceRepository interface {
 	ByID(ctx context.Context, movementTypeID domain.MovementTypeID) (domain.MovementType, error)
 }
 
-type CategoryRepository interface {
+type CategoryReferenceRepository interface {
 	ByIDForUser(ctx context.Context, categoryID domain.CategoryID, userID domain.UserID) (domain.Category, error)
 }

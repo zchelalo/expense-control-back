@@ -85,13 +85,13 @@ func InitApp(log *zap.Logger, cfg Config) (*App, error) {
 	authV1 := authhttp.NewRouter(registerUseCase, loginUseCase, logoutUseCase, refreshUseCase, secureCookies, mdw)
 
 	accountStore := accountpg.NewAccountRepo(db)
-	userStore := accountpg.NewUserRepo(db)
+	userReferenceStore := accountpg.NewUserReferenceRepository(db)
 
-	createAccountUseCase := createuc.New(accountStore, userStore, clock, ids)
-	listAccountsUseCase := listuc.New(accountStore, userStore, ids, cfg.PaginatorLimitDefault)
-	byIDAccountsUseCase := byiduc.New(accountStore, userStore)
-	updateAccountNameUseCase := updatenameuc.New(accountStore, userStore, clock)
-	deleteAccountUseCase := deleteuc.New(accountStore, userStore, clock)
+	createAccountUseCase := createuc.New(accountStore, userReferenceStore, clock, ids)
+	listAccountsUseCase := listuc.New(accountStore, userReferenceStore, ids, cfg.PaginatorLimitDefault)
+	byIDAccountsUseCase := byiduc.New(accountStore, userReferenceStore)
+	updateAccountNameUseCase := updatenameuc.New(accountStore, userReferenceStore, clock)
+	deleteAccountUseCase := deleteuc.New(accountStore, userReferenceStore, clock)
 	accountV1 := accounthttp.NewRouter(
 		createAccountUseCase,
 		listAccountsUseCase,
@@ -102,10 +102,10 @@ func InitApp(log *zap.Logger, cfg Config) (*App, error) {
 	)
 
 	categoryStore := categorypg.NewCategoryRepo(db)
-	categoryUserStore := categorypg.NewUserRepo(db)
-	createCategoryUseCase := categorycreateuc.New(categoryStore, categoryUserStore, clock, ids)
-	deleteCategoryUseCase := categorydeleteuc.New(categoryStore, categoryUserStore, clock)
-	listCategoriesUseCase := categorylistuc.New(categoryStore, categoryUserStore, cfg.PaginatorLimitDefault)
+	categoryUserReferenceStore := categorypg.NewUserReferenceRepository(db)
+	createCategoryUseCase := categorycreateuc.New(categoryStore, categoryUserReferenceStore, clock, ids)
+	deleteCategoryUseCase := categorydeleteuc.New(categoryStore, categoryUserReferenceStore, clock)
+	listCategoriesUseCase := categorylistuc.New(categoryStore, categoryUserReferenceStore, cfg.PaginatorLimitDefault)
 	categoryV1 := categoryhttp.NewRouter(
 		createCategoryUseCase,
 		deleteCategoryUseCase,
@@ -115,33 +115,33 @@ func InitApp(log *zap.Logger, cfg Config) (*App, error) {
 
 	movementStore := movementpg.NewMovementRepo(db)
 	movementQuery := movementpg.NewQueryRepo(db)
-	movementUserStore := movementpg.NewUserRepo(db)
-	movementAccountStore := movementpg.NewAccountRepo(db)
-	movementTypeStore := movementpg.NewMovementTypeRepo(db)
-	movementCategoryStore := movementpg.NewCategoryRepo(db)
+	movementUserReferenceStore := movementpg.NewUserReferenceRepository(db)
+	movementAccountReferenceStore := movementpg.NewAccountReferenceRepository(db)
+	movementTypeReferenceStore := movementpg.NewMovementTypeReferenceRepository(db)
+	movementCategoryReferenceStore := movementpg.NewCategoryReferenceRepository(db)
 
 	createMovementUseCase := movementcreateuc.New(
 		movementStore,
-		movementUserStore,
-		movementAccountStore,
-		movementTypeStore,
-		movementCategoryStore,
+		movementUserReferenceStore,
+		movementAccountReferenceStore,
+		movementTypeReferenceStore,
+		movementCategoryReferenceStore,
 		clock,
 		ids,
 	)
 	listMovementsUseCase := movementlistuc.New(
 		movementQuery,
-		movementUserStore,
+		movementUserReferenceStore,
 		cfg.PaginatorLimitDefault,
 	)
 	byIDMovementUseCase := movementbyiduc.New(
 		movementQuery,
-		movementUserStore,
+		movementUserReferenceStore,
 	)
 	deleteMovementUseCase := movementdeleteuc.New(
 		movementStore,
 		movementQuery,
-		movementUserStore,
+		movementUserReferenceStore,
 		clock,
 	)
 	movementV1 := movementhttp.NewRouter(

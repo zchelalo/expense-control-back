@@ -13,20 +13,20 @@ import (
 
 type UseCase struct {
 	movements     ports.MovementRepository
-	users         ports.UserRepository
-	accounts      ports.AccountRepository
-	movementTypes ports.MovementTypeRepository
-	categories    ports.CategoryRepository
+	users         ports.UserReferenceRepository
+	accounts      ports.AccountReferenceRepository
+	movementTypes ports.MovementTypeReferenceRepository
+	categories    ports.CategoryReferenceRepository
 	clock         clock.Clock
 	ids           idgen.Generator
 }
 
 func New(
 	movements ports.MovementRepository,
-	users ports.UserRepository,
-	accounts ports.AccountRepository,
-	movementTypes ports.MovementTypeRepository,
-	categories ports.CategoryRepository,
+	users ports.UserReferenceRepository,
+	accounts ports.AccountReferenceRepository,
+	movementTypes ports.MovementTypeReferenceRepository,
+	categories ports.CategoryReferenceRepository,
 	clock clock.Clock,
 	ids idgen.Generator,
 ) *UseCase {

@@ -13,14 +13,14 @@ import (
 type UseCase struct {
 	movements ports.MovementRepository
 	query     ports.QueryRepository
-	users     ports.UserRepository
+	users     ports.UserReferenceRepository
 	clock     clock.Clock
 }
 
 func New(
 	movements ports.MovementRepository,
 	query ports.QueryRepository,
-	users ports.UserRepository,
+	users ports.UserReferenceRepository,
 	clock clock.Clock,
 ) *UseCase {
 	return &UseCase{

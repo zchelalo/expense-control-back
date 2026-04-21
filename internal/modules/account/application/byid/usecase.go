@@ -11,16 +11,16 @@ import (
 
 type UseCase struct {
 	accounts ports.AccountRepository
-	users ports.UserRepository
+	users    ports.UserReferenceRepository
 }
 
 func New(
 	accounts ports.AccountRepository,
-	users ports.UserRepository,
+	users ports.UserReferenceRepository,
 ) *UseCase {
 	return &UseCase{
 		accounts: accounts,
-		users: users,
+		users:    users,
 	}
 }
 

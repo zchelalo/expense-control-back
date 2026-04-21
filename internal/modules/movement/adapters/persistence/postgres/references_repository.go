@@ -11,15 +11,15 @@ import (
 	pgutil "github.com/zchelalo/expense-control-back/internal/shared/postgresutil"
 )
 
-type UserRepo struct {
+type UserReferenceRepository struct {
 	q *movementdb.Queries
 }
 
-func NewUserRepo(db movementdb.DBTX) *UserRepo {
-	return &UserRepo{q: movementdb.New(db)}
+func NewUserReferenceRepository(db movementdb.DBTX) *UserReferenceRepository {
+	return &UserReferenceRepository{q: movementdb.New(db)}
 }
 
-func (r *UserRepo) Exists(ctx context.Context, userID domain.UserID) (bool, error) {
+func (r *UserReferenceRepository) Exists(ctx context.Context, userID domain.UserID) (bool, error) {
 	exists, err := r.q.UserExists(ctx, pgutil.UUID(userID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -31,15 +31,15 @@ func (r *UserRepo) Exists(ctx context.Context, userID domain.UserID) (bool, erro
 	return exists, nil
 }
 
-type AccountRepo struct {
+type AccountReferenceRepository struct {
 	q *movementdb.Queries
 }
 
-func NewAccountRepo(db movementdb.DBTX) *AccountRepo {
-	return &AccountRepo{q: movementdb.New(db)}
+func NewAccountReferenceRepository(db movementdb.DBTX) *AccountReferenceRepository {
+	return &AccountReferenceRepository{q: movementdb.New(db)}
 }
 
-func (r *AccountRepo) ExistsByUserID(ctx context.Context, accountID domain.AccountID, userID domain.UserID) (bool, error) {
+func (r *AccountReferenceRepository) ExistsByUserID(ctx context.Context, accountID domain.AccountID, userID domain.UserID) (bool, error) {
 	exists, err := r.q.AccountExistsByUserID(ctx, movementdb.AccountExistsByUserIDParams{
 		ID:     pgutil.UUID(accountID),
 		UserID: pgutil.UUID(userID),
@@ -54,15 +54,15 @@ func (r *AccountRepo) ExistsByUserID(ctx context.Context, accountID domain.Accou
 	return exists, nil
 }
 
-type MovementTypeRepo struct {
+type MovementTypeReferenceRepository struct {
 	q *movementdb.Queries
 }
 
-func NewMovementTypeRepo(db movementdb.DBTX) *MovementTypeRepo {
-	return &MovementTypeRepo{q: movementdb.New(db)}
+func NewMovementTypeReferenceRepository(db movementdb.DBTX) *MovementTypeReferenceRepository {
+	return &MovementTypeReferenceRepository{q: movementdb.New(db)}
 }
 
-func (r *MovementTypeRepo) ByID(ctx context.Context, movementTypeID domain.MovementTypeID) (domain.MovementType, error) {
+func (r *MovementTypeReferenceRepository) ByID(ctx context.Context, movementTypeID domain.MovementTypeID) (domain.MovementType, error) {
 	movementType, err := r.q.GetMovementTypeByID(ctx, pgutil.UUID(movementTypeID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -78,15 +78,15 @@ func (r *MovementTypeRepo) ByID(ctx context.Context, movementTypeID domain.Movem
 	)
 }
 
-type CategoryRepo struct {
+type CategoryReferenceRepository struct {
 	q *movementdb.Queries
 }
 
-func NewCategoryRepo(db movementdb.DBTX) *CategoryRepo {
-	return &CategoryRepo{q: movementdb.New(db)}
+func NewCategoryReferenceRepository(db movementdb.DBTX) *CategoryReferenceRepository {
+	return &CategoryReferenceRepository{q: movementdb.New(db)}
 }
 
-func (r *CategoryRepo) ByIDForUser(ctx context.Context, categoryID domain.CategoryID, userID domain.UserID) (domain.Category, error) {
+func (r *CategoryReferenceRepository) ByIDForUser(ctx context.Context, categoryID domain.CategoryID, userID domain.UserID) (domain.Category, error) {
 	category, err := r.q.GetCategoryByIDForUser(ctx, movementdb.GetCategoryByIDForUserParams{
 		CategoryID: pgutil.UUID(categoryID),
 		UserID:     pgutil.UUID(userID),

@@ -6,6 +6,6 @@ import (
 	"github.com/zchelalo/expense-control-back/internal/modules/category/domain"
 )
 
-type UserRepository interface {
+type UserReferenceRepository interface {
 	Exists(ctx context.Context, userID domain.UserID) (bool, error)
 }

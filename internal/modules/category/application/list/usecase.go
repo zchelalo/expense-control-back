@@ -11,13 +11,13 @@ import (
 
 type UseCase struct {
 	categories      ports.CategoryRepository
-	users           ports.UserRepository
+	users           ports.UserReferenceRepository
 	pagLimitDefault int
 }
 
 func New(
 	categories ports.CategoryRepository,
-	users ports.UserRepository,
+	users ports.UserReferenceRepository,
 	pagLimitDefault int,
 ) *UseCase {
 	return &UseCase{

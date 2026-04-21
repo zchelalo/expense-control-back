@@ -13,20 +13,20 @@ import (
 
 type UseCase struct {
 	accounts ports.AccountRepository
-	users ports.UserRepository
+	users    ports.UserReferenceRepository
 	clock    clock.Clock
 	ids      idgen.Generator
 }
 
 func New(
 	accounts ports.AccountRepository,
-	users ports.UserRepository,
+	users ports.UserReferenceRepository,
 	clock clock.Clock,
 	ids idgen.Generator,
 ) *UseCase {
 	return &UseCase{
 		accounts: accounts,
-		users: users,
+		users:    users,
 		clock:    clock,
 		ids:      ids,
 	}

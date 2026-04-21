@@ -12,19 +12,19 @@ import (
 
 type UseCase struct {
 	accounts ports.AccountRepository
-	users ports.UserRepository
+	users    ports.UserReferenceRepository
 	clock    clock.Clock
 }
 
 func New(
 	accounts ports.AccountRepository,
-	users ports.UserRepository,
+	users ports.UserReferenceRepository,
 	clock clock.Clock,
 ) *UseCase {
 	return &UseCase{
 		accounts: accounts,
-		users: users,
-		clock: clock,
+		users:    users,
+		clock:    clock,
 	}
 }
 
@@ -109,7 +109,7 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 		)
 		return Result{}, err
 	}
-	
+
 	return Result{Account: domain.RehydrateAccount(
 		account.ID(),
 		name,

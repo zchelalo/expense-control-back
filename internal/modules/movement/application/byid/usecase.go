@@ -11,12 +11,12 @@ import (
 
 type UseCase struct {
 	query ports.QueryRepository
-	users ports.UserRepository
+	users ports.UserReferenceRepository
 }
 
 func New(
 	query ports.QueryRepository,
-	users ports.UserRepository,
+	users ports.UserReferenceRepository,
 ) *UseCase {
 	return &UseCase{
 		query: query,

@@ -12,19 +12,19 @@ import (
 
 type UseCase struct {
 	accounts ports.AccountRepository
-	users ports.UserRepository
-	clock clock.Clock
+	users    ports.UserReferenceRepository
+	clock    clock.Clock
 }
 
 func New(
 	accounts ports.AccountRepository,
-	users ports.UserRepository,
+	users ports.UserReferenceRepository,
 	clock clock.Clock,
 ) *UseCase {
 	return &UseCase{
 		accounts: accounts,
-		users: users,
-		clock: clock,
+		users:    users,
+		clock:    clock,
 	}
 }
 
