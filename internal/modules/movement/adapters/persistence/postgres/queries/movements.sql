@@ -62,7 +62,8 @@ SELECT
   base.deleted_at,
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
-  c.name AS category_name
+  c.name AS category_name,
+  a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
   ON mt.id = base.movement_type_id
@@ -70,6 +71,9 @@ INNER JOIN movement_types mt
 INNER JOIN categories c
   ON c.id = base.category_id
  AND c.deleted_at IS NULL
+INNER JOIN accounts a
+  ON a.id = base.account_id
+ AND a.deleted_at IS NULL
 ;
 
 -- name: ListMovementsByUserIDAfter :many
@@ -111,7 +115,8 @@ SELECT
   base.deleted_at,
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
-  c.name AS category_name
+  c.name AS category_name,
+  a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
   ON mt.id = base.movement_type_id
@@ -119,6 +124,9 @@ INNER JOIN movement_types mt
 INNER JOIN categories c
   ON c.id = base.category_id
  AND c.deleted_at IS NULL
+INNER JOIN accounts a
+  ON a.id = base.account_id
+ AND a.deleted_at IS NULL
 ORDER BY base.created_at DESC, base.id DESC
 ;
 
@@ -158,7 +166,8 @@ SELECT
   base.deleted_at,
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
-  c.name AS category_name
+  c.name AS category_name,
+  a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
   ON mt.id = base.movement_type_id
@@ -166,6 +175,9 @@ INNER JOIN movement_types mt
 INNER JOIN categories c
   ON c.id = base.category_id
  AND c.deleted_at IS NULL
+INNER JOIN accounts a
+  ON a.id = base.account_id
+ AND a.deleted_at IS NULL
 ORDER BY base.created_at ASC, base.id ASC
 ;
 
@@ -209,7 +221,8 @@ SELECT
   base.deleted_at,
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
-  c.name AS category_name
+  c.name AS category_name,
+  a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
   ON mt.id = base.movement_type_id
@@ -217,6 +230,9 @@ INNER JOIN movement_types mt
 INNER JOIN categories c
   ON c.id = base.category_id
  AND c.deleted_at IS NULL
+INNER JOIN accounts a
+  ON a.id = base.account_id
+ AND a.deleted_at IS NULL
 ORDER BY base.created_at DESC, base.id DESC
 ;
 
@@ -257,7 +273,8 @@ SELECT
   base.deleted_at,
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
-  c.name AS category_name
+  c.name AS category_name,
+  a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
   ON mt.id = base.movement_type_id
@@ -265,6 +282,9 @@ INNER JOIN movement_types mt
 INNER JOIN categories c
   ON c.id = base.category_id
  AND c.deleted_at IS NULL
+INNER JOIN accounts a
+  ON a.id = base.account_id
+ AND a.deleted_at IS NULL
 ORDER BY base.created_at ASC, base.id ASC
 ;
 
@@ -308,7 +328,8 @@ SELECT
   base.deleted_at,
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
-  c.name AS category_name
+  c.name AS category_name,
+  a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
   ON mt.id = base.movement_type_id
@@ -316,6 +337,9 @@ INNER JOIN movement_types mt
 INNER JOIN categories c
   ON c.id = base.category_id
  AND c.deleted_at IS NULL
+INNER JOIN accounts a
+  ON a.id = base.account_id
+ AND a.deleted_at IS NULL
 ORDER BY base.created_at DESC, base.id DESC
 ;
 
@@ -356,7 +380,8 @@ SELECT
   base.deleted_at,
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
-  c.name AS category_name
+  c.name AS category_name,
+  a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
   ON mt.id = base.movement_type_id
@@ -364,6 +389,9 @@ INNER JOIN movement_types mt
 INNER JOIN categories c
   ON c.id = base.category_id
  AND c.deleted_at IS NULL
+INNER JOIN accounts a
+  ON a.id = base.account_id
+ AND a.deleted_at IS NULL
 ORDER BY base.created_at ASC, base.id ASC
 ;
 
@@ -407,7 +435,8 @@ SELECT
   base.deleted_at,
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
-  c.name AS category_name
+  c.name AS category_name,
+  a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
   ON mt.id = base.movement_type_id
@@ -415,6 +444,9 @@ INNER JOIN movement_types mt
 INNER JOIN categories c
   ON c.id = base.category_id
  AND c.deleted_at IS NULL
+INNER JOIN accounts a
+  ON a.id = base.account_id
+ AND a.deleted_at IS NULL
 ORDER BY base.created_at DESC, base.id DESC
 ;
 
@@ -455,7 +487,8 @@ SELECT
   base.deleted_at,
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
-  c.name AS category_name
+  c.name AS category_name,
+  a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
   ON mt.id = base.movement_type_id
@@ -463,6 +496,9 @@ INNER JOIN movement_types mt
 INNER JOIN categories c
   ON c.id = base.category_id
  AND c.deleted_at IS NULL
+INNER JOIN accounts a
+  ON a.id = base.account_id
+ AND a.deleted_at IS NULL
 ORDER BY base.created_at ASC, base.id ASC
 ;
 
@@ -517,7 +553,8 @@ SELECT
   base.deleted_at,
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
-  c.name AS category_name
+  c.name AS category_name,
+  a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
   ON mt.id = base.movement_type_id
@@ -525,6 +562,9 @@ INNER JOIN movement_types mt
 INNER JOIN categories c
   ON c.id = base.category_id
  AND c.deleted_at IS NULL
+INNER JOIN accounts a
+  ON a.id = base.account_id
+ AND a.deleted_at IS NULL
 ORDER BY base.created_at DESC, base.id DESC
 ;
 
@@ -576,7 +616,8 @@ SELECT
   base.deleted_at,
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
-  c.name AS category_name
+  c.name AS category_name,
+  a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
   ON mt.id = base.movement_type_id
@@ -584,6 +625,9 @@ INNER JOIN movement_types mt
 INNER JOIN categories c
   ON c.id = base.category_id
  AND c.deleted_at IS NULL
+INNER JOIN accounts a
+  ON a.id = base.account_id
+ AND a.deleted_at IS NULL
 ORDER BY base.created_at ASC, base.id ASC
 ;
 

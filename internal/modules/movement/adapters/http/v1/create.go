@@ -30,13 +30,18 @@ type categoryResponse struct {
 	Name string `json:"name,omitempty"`
 }
 
+type accountResponse struct {
+	ID   string `json:"id"`
+	Name string `json:"name,omitempty"`
+}
+
 type movementResponse struct {
 	ID           string               `json:"id"`
 	Amount       float64              `json:"amount"`
 	Description  string               `json:"description"`
 	MovementType movementTypeResponse `json:"movement_type"`
 	Category     categoryResponse     `json:"category"`
-	AccountID    string               `json:"account_id"`
+	Account      accountResponse      `json:"account"`
 	UserID       string               `json:"user_id"`
 	CreatedAt    string               `json:"created_at"`
 	UpdatedAt    string               `json:"updated_at"`
@@ -126,7 +131,9 @@ func mapMovement(m *domain.Movement) movementResponse {
 		Category: categoryResponse{
 			ID: m.CategoryID().String(),
 		},
-		AccountID: m.AccountID().String(),
+		Account: accountResponse{
+			ID: m.AccountID().String(),
+		},
 		UserID:    m.UserID().String(),
 		CreatedAt: m.CreatedAt().UTC().Format(time.RFC3339),
 		UpdatedAt: m.UpdatedAt().UTC().Format(time.RFC3339),

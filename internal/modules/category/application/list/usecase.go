@@ -98,7 +98,7 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 		return Result{}, ports.ErrNotFound{Name: "user"}
 	}
 
-	categories, err := uc.categories.ListByUserID(ctx, userID, cmd.CreatedAt, categoryID, cmd.Limit, cmd.IsBefore)
+	categories, err := uc.categories.ListByUserID(ctx, userID, cmd.Name, cmd.CreatedAt, categoryID, cmd.Limit, cmd.IsBefore)
 	if err != nil {
 		log.Error("failed to list categories",
 			zap.String("stage", "list_categories"),

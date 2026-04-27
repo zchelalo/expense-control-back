@@ -103,6 +103,7 @@ WHERE uc.user_id = sqlc.arg('user_id')
       sqlc.narg('cursor_category_id')::uuid
     )
   )
+  AND (sqlc.narg('name')::text IS NULL OR c.name ILIKE '%' || sqlc.narg('name') || '%')
 ORDER BY uc.created_at DESC, uc.category_id DESC
 LIMIT sqlc.arg('limit_count')
 ;
@@ -127,6 +128,7 @@ WHERE uc.user_id = sqlc.arg('user_id')
       sqlc.narg('cursor_category_id')::uuid
     )
   )
+  AND (sqlc.narg('name')::text IS NULL OR c.name ILIKE '%' || sqlc.narg('name') || '%')
 ORDER BY uc.created_at ASC, uc.category_id ASC
 LIMIT sqlc.arg('limit_count')
 ;

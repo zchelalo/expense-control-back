@@ -46,6 +46,7 @@ func (r *QueryRepo) ByIDForUser(ctx context.Context, movementID domain.MovementI
 		MovementTypeKey:  row.MovementTypeKey,
 		MovementTypeName: row.MovementTypeName,
 		CategoryName:     row.CategoryName,
+		AccountName:      row.AccountName,
 	})
 }
 
@@ -89,6 +90,7 @@ func (r *QueryRepo) listAfter(ctx context.Context, userID domain.UserID, filter 
 				MovementTypeKey:  row.MovementTypeKey,
 				MovementTypeName: row.MovementTypeName,
 				CategoryName:     row.CategoryName,
+				AccountName:      row.AccountName,
 			}
 		})
 	case 1:
@@ -119,6 +121,7 @@ func (r *QueryRepo) listAfter(ctx context.Context, userID domain.UserID, filter 
 					MovementTypeKey:  row.MovementTypeKey,
 					MovementTypeName: row.MovementTypeName,
 					CategoryName:     row.CategoryName,
+					AccountName:      row.AccountName,
 				}
 			})
 		}
@@ -150,6 +153,7 @@ func (r *QueryRepo) listAfter(ctx context.Context, userID domain.UserID, filter 
 					MovementTypeKey:  row.MovementTypeKey,
 					MovementTypeName: row.MovementTypeName,
 					CategoryName:     row.CategoryName,
+					AccountName:      row.AccountName,
 				}
 			})
 		}
@@ -180,6 +184,7 @@ func (r *QueryRepo) listAfter(ctx context.Context, userID domain.UserID, filter 
 				MovementTypeKey:  row.MovementTypeKey,
 				MovementTypeName: row.MovementTypeName,
 				CategoryName:     row.CategoryName,
+				AccountName:      row.AccountName,
 			}
 		})
 	default:
@@ -211,6 +216,7 @@ func (r *QueryRepo) listAfter(ctx context.Context, userID domain.UserID, filter 
 				MovementTypeKey:  row.MovementTypeKey,
 				MovementTypeName: row.MovementTypeName,
 				CategoryName:     row.CategoryName,
+				AccountName:      row.AccountName,
 			}
 		})
 	}
@@ -253,6 +259,7 @@ func (r *QueryRepo) listBefore(ctx context.Context, userID domain.UserID, filter
 				MovementTypeKey:  row.MovementTypeKey,
 				MovementTypeName: row.MovementTypeName,
 				CategoryName:     row.CategoryName,
+				AccountName:      row.AccountName,
 			}
 		})
 	case 1:
@@ -284,6 +291,7 @@ func (r *QueryRepo) listBefore(ctx context.Context, userID domain.UserID, filter
 					MovementTypeKey:  row.MovementTypeKey,
 					MovementTypeName: row.MovementTypeName,
 					CategoryName:     row.CategoryName,
+					AccountName:      row.AccountName,
 				}
 			})
 		case filter.CategoryID != nil:
@@ -313,6 +321,7 @@ func (r *QueryRepo) listBefore(ctx context.Context, userID domain.UserID, filter
 					MovementTypeKey:  row.MovementTypeKey,
 					MovementTypeName: row.MovementTypeName,
 					CategoryName:     row.CategoryName,
+					AccountName:      row.AccountName,
 				}
 			})
 		default:
@@ -342,6 +351,7 @@ func (r *QueryRepo) listBefore(ctx context.Context, userID domain.UserID, filter
 					MovementTypeKey:  row.MovementTypeKey,
 					MovementTypeName: row.MovementTypeName,
 					CategoryName:     row.CategoryName,
+					AccountName:      row.AccountName,
 				}
 			})
 		}
@@ -374,6 +384,7 @@ func (r *QueryRepo) listBefore(ctx context.Context, userID domain.UserID, filter
 				MovementTypeKey:  row.MovementTypeKey,
 				MovementTypeName: row.MovementTypeName,
 				CategoryName:     row.CategoryName,
+				AccountName:      row.AccountName,
 			}
 		})
 	}

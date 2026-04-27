@@ -13,5 +13,6 @@ var (
 	ErrInvalidDescription         = errors.New("invalid description")
 	ErrInvalidMovementType        = errors.New("invalid movement type")
 	ErrInvalidCategory            = errors.New("invalid category")
+	ErrInvalidAccount             = errors.New("invalid account")
 	ErrInsufficientAccountBalance = errors.New("insufficient account balance")
 )

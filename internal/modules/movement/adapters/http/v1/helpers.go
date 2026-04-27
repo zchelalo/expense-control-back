@@ -10,6 +10,7 @@ func mapMovementDetails(details domain.MovementDetails) movementResponse {
 	movement := details.Movement()
 	movementType := details.MovementType()
 	category := details.Category()
+	account := details.Account()
 
 	return movementResponse{
 		ID:          movement.ID().String(),
@@ -24,7 +25,10 @@ func mapMovementDetails(details domain.MovementDetails) movementResponse {
 			ID:   category.ID().String(),
 			Name: category.Name(),
 		},
-		AccountID: movement.AccountID().String(),
+		Account: accountResponse{
+			ID:   account.ID().String(),
+			Name: account.Name(),
+		},
 		UserID:    movement.UserID().String(),
 		CreatedAt: movement.CreatedAt().UTC().Format(time.RFC3339),
 		UpdatedAt: movement.UpdatedAt().UTC().Format(time.RFC3339),

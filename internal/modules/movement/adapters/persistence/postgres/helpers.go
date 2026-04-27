@@ -20,6 +20,7 @@ type movementDetailsFields struct {
 	MovementTypeKey  string
 	MovementTypeName string
 	CategoryName     string
+	AccountName      string
 }
 
 func hydrateMovement(
@@ -122,7 +123,15 @@ func hydrateMovementDetails(fields movementDetailsFields) (domain.MovementDetail
 		return domain.MovementDetails{}, err
 	}
 
-	return domain.NewMovementDetails(movement, movementType, category), nil
+	account, err := domain.RehydrateAccount(
+		movement.AccountID(),
+		fields.AccountName,
+	)
+	if err != nil {
+		return domain.MovementDetails{}, err
+	}
+
+	return domain.NewMovementDetails(movement, movementType, category, account), nil
 }
 
 func mapMovementDetailsRows[T any](rows []T, extract func(T) movementDetailsFields) ([]domain.MovementDetails, error) {

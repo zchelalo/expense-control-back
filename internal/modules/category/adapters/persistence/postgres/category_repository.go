@@ -84,13 +84,21 @@ func (r *CategoryRepo) Create(ctx context.Context, category domain.Category) (do
 	return createdCategory, nil
 }
 
-func (r *CategoryRepo) ListByUserID(ctx context.Context, userID domain.UserID, createdAt *time.Time, categoryID *domain.CategoryID, limit int, isBefore bool) ([]domain.Category, error) {
+func (r *CategoryRepo) ListByUserID(ctx context.Context, userID domain.UserID, name *string, createdAt *time.Time, categoryID *domain.CategoryID, limit int, isBefore bool) ([]domain.Category, error) {
+	var nameFilter pgtype.Text
+	if name != nil {
+		nameFilter = pgtype.Text{String: *name, Valid: true}
+	} else {
+		nameFilter = pgtype.Text{Valid: false}
+	}
+
 	if isBefore {
 		rows, err := r.q.ListCategoriesByUserIDBefore(ctx, categorydb.ListCategoriesByUserIDBeforeParams{
 			UserID:           pgutil.UUID(userID),
 			CursorCreatedAt:  pgutil.OptionalTimestamptz(createdAt),
 			CursorCategoryID: pgutil.OptionalUUID(categoryID),
 			LimitCount:       int32(limit),
+			Name:             nameFilter,
 		})
 		if err != nil {
 			return nil, err
@@ -114,6 +122,7 @@ func (r *CategoryRepo) ListByUserID(ctx context.Context, userID domain.UserID, c
 		CursorCreatedAt:  pgutil.OptionalTimestamptz(createdAt),
 		CursorCategoryID: pgutil.OptionalUUID(categoryID),
 		LimitCount:       int32(limit),
+		Name:             nameFilter,
 	})
 	if err != nil {
 		return nil, err
