@@ -69,7 +69,9 @@ ORDER BY key ASC, id ASC
 -- name: GetCategoryByIDForUser :one
 SELECT
   c.id,
-  c.name
+  c.name,
+  c.is_system,
+  c.system_key
 FROM user_categories uc
 INNER JOIN categories c
   ON c.id = uc.category_id
@@ -77,4 +79,5 @@ INNER JOIN categories c
 WHERE uc.category_id = sqlc.arg('category_id')
   AND uc.user_id = sqlc.arg('user_id')
   AND uc.deleted_at IS NULL
+  AND c.is_system = FALSE
 ;

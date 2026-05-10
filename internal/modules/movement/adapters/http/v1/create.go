@@ -26,8 +26,10 @@ type movementTypeResponse struct {
 }
 
 type categoryResponse struct {
-	ID   string `json:"id"`
-	Name string `json:"name,omitempty"`
+	ID        string `json:"id"`
+	Name      string `json:"name,omitempty"`
+	IsSystem  bool   `json:"is_system,omitempty"`
+	SystemKey string `json:"system_key,omitempty"`
 }
 
 type accountResponse struct {

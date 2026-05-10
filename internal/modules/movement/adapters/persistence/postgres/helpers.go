@@ -3,24 +3,60 @@ package postgres
 import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/zchelalo/expense-control-back/internal/modules/movement/domain"
+	"github.com/zchelalo/expense-control-back/internal/modules/movement/ports"
 	"github.com/zchelalo/expense-control-back/internal/shared/postgresutil"
 )
 
 type movementDetailsFields struct {
-	ID               pgtype.UUID
-	Amount           pgtype.Numeric
-	Description      string
-	MovementTypeID   pgtype.UUID
-	CategoryID       pgtype.UUID
-	AccountID        pgtype.UUID
-	UserID           pgtype.UUID
-	CreatedAt        pgtype.Timestamptz
-	UpdatedAt        pgtype.Timestamptz
-	DeletedAt        pgtype.Timestamptz
-	MovementTypeKey  string
-	MovementTypeName string
-	CategoryName     string
-	AccountName      string
+	ID                pgtype.UUID
+	Amount            pgtype.Numeric
+	Description       string
+	MovementTypeID    pgtype.UUID
+	CategoryID        pgtype.UUID
+	AccountID         pgtype.UUID
+	UserID            pgtype.UUID
+	CreatedAt         pgtype.Timestamptz
+	UpdatedAt         pgtype.Timestamptz
+	DeletedAt         pgtype.Timestamptz
+	MovementTypeKey   string
+	MovementTypeName  string
+	CategoryName      string
+	CategoryIsSystem  bool
+	CategorySystemKey pgtype.Text
+	AccountName       string
+}
+
+type movementStatsOverviewFields struct {
+	TotalMovements int64
+	IncomeCount    int64
+	ExpenseCount   int64
+	IncomeTotal    pgtype.Numeric
+	ExpenseTotal   pgtype.Numeric
+	NetTotal       pgtype.Numeric
+}
+
+type movementStatsByAccountFields struct {
+	AccountID     pgtype.UUID
+	AccountName   string
+	MovementCount int64
+	IncomeCount   int64
+	ExpenseCount  int64
+	IncomeTotal   pgtype.Numeric
+	ExpenseTotal  pgtype.Numeric
+	NetTotal      pgtype.Numeric
+}
+
+type movementStatsByCategoryFields struct {
+	CategoryID        pgtype.UUID
+	CategoryName      string
+	CategoryIsSystem  bool
+	CategorySystemKey pgtype.Text
+	MovementCount     int64
+	IncomeCount       int64
+	ExpenseCount      int64
+	IncomeTotal       pgtype.Numeric
+	ExpenseTotal      pgtype.Numeric
+	NetTotal          pgtype.Numeric
 }
 
 func hydrateMovement(
@@ -118,6 +154,8 @@ func hydrateMovementDetails(fields movementDetailsFields) (domain.MovementDetail
 	category, err := domain.RehydrateCategory(
 		movement.CategoryID(),
 		fields.CategoryName,
+		fields.CategoryIsSystem,
+		fields.CategorySystemKey.String,
 	)
 	if err != nil {
 		return domain.MovementDetails{}, err
@@ -147,6 +185,100 @@ func mapMovementDetailsRows[T any](rows []T, extract func(T) movementDetailsFiel
 	}
 
 	return result, nil
+}
+
+func hydrateMovementStatsOverview(fields movementStatsOverviewFields) (ports.MovementStatsOverview, error) {
+	incomeTotal, err := postgresutil.NumericToFloat64(fields.IncomeTotal)
+	if err != nil {
+		return ports.MovementStatsOverview{}, err
+	}
+
+	expenseTotal, err := postgresutil.NumericToFloat64(fields.ExpenseTotal)
+	if err != nil {
+		return ports.MovementStatsOverview{}, err
+	}
+
+	netTotal, err := postgresutil.NumericToFloat64(fields.NetTotal)
+	if err != nil {
+		return ports.MovementStatsOverview{}, err
+	}
+
+	return ports.MovementStatsOverview{
+		TotalMovements: fields.TotalMovements,
+		IncomeCount:    fields.IncomeCount,
+		ExpenseCount:   fields.ExpenseCount,
+		IncomeTotal:    incomeTotal,
+		ExpenseTotal:   expenseTotal,
+		NetTotal:       netTotal,
+	}, nil
+}
+
+func hydrateMovementStatsByAccount(fields movementStatsByAccountFields) (ports.MovementStatsByAccount, error) {
+	accountID, err := domain.NewAccountID(fields.AccountID.Bytes)
+	if err != nil {
+		return ports.MovementStatsByAccount{}, err
+	}
+
+	incomeTotal, err := postgresutil.NumericToFloat64(fields.IncomeTotal)
+	if err != nil {
+		return ports.MovementStatsByAccount{}, err
+	}
+
+	expenseTotal, err := postgresutil.NumericToFloat64(fields.ExpenseTotal)
+	if err != nil {
+		return ports.MovementStatsByAccount{}, err
+	}
+
+	netTotal, err := postgresutil.NumericToFloat64(fields.NetTotal)
+	if err != nil {
+		return ports.MovementStatsByAccount{}, err
+	}
+
+	return ports.MovementStatsByAccount{
+		AccountID:     accountID,
+		AccountName:   fields.AccountName,
+		MovementCount: fields.MovementCount,
+		IncomeCount:   fields.IncomeCount,
+		ExpenseCount:  fields.ExpenseCount,
+		IncomeTotal:   incomeTotal,
+		ExpenseTotal:  expenseTotal,
+		NetTotal:      netTotal,
+	}, nil
+}
+
+func hydrateMovementStatsByCategory(fields movementStatsByCategoryFields) (ports.MovementStatsByCategory, error) {
+	categoryID, err := domain.NewCategoryID(fields.CategoryID.Bytes)
+	if err != nil {
+		return ports.MovementStatsByCategory{}, err
+	}
+
+	incomeTotal, err := postgresutil.NumericToFloat64(fields.IncomeTotal)
+	if err != nil {
+		return ports.MovementStatsByCategory{}, err
+	}
+
+	expenseTotal, err := postgresutil.NumericToFloat64(fields.ExpenseTotal)
+	if err != nil {
+		return ports.MovementStatsByCategory{}, err
+	}
+
+	netTotal, err := postgresutil.NumericToFloat64(fields.NetTotal)
+	if err != nil {
+		return ports.MovementStatsByCategory{}, err
+	}
+
+	return ports.MovementStatsByCategory{
+		CategoryID:        categoryID,
+		CategoryName:      fields.CategoryName,
+		CategoryIsSystem:  fields.CategoryIsSystem,
+		CategorySystemKey: fields.CategorySystemKey.String,
+		MovementCount:     fields.MovementCount,
+		IncomeCount:       fields.IncomeCount,
+		ExpenseCount:      fields.ExpenseCount,
+		IncomeTotal:       incomeTotal,
+		ExpenseTotal:      expenseTotal,
+		NetTotal:          netTotal,
+	}, nil
 }
 
 func reverseMovementDetails(items []domain.MovementDetails) {

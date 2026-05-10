@@ -9,7 +9,6 @@ import (
 	"github.com/zchelalo/expense-control-back/internal/middleware"
 	"github.com/zchelalo/expense-control-back/internal/modules/movement/application/list"
 	"github.com/zchelalo/expense-control-back/pkg/pagination"
-	uuidparse "github.com/zchelalo/expense-control-back/pkg/parse"
 	"github.com/zchelalo/expense-control-back/pkg/response"
 )
 
@@ -32,6 +31,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	queries := r.URL.Query()
+	language := requestLanguage(r.Header.Get("Accept-Language"))
 
 	var err error
 	var limit int
@@ -78,38 +78,19 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		isBefore = true
 	}
 
-	accountID, err := uuidparse.OptionalUUID(queries.Get("account_id"))
-	if err != nil {
-		response.WriteError(w, http.StatusBadRequest, response.APIError{
-			Code:    "invalid_account_id",
-			Message: "invalid account ID format",
-		}, rid)
-		return
-	}
-
-	categoryID, err := uuidparse.OptionalUUID(queries.Get("category_id"))
-	if err != nil {
-		response.WriteError(w, http.StatusBadRequest, response.APIError{
-			Code:    "invalid_category_id",
-			Message: "invalid category ID format",
-		}, rid)
-		return
-	}
-
-	movementTypeID, err := uuidparse.OptionalUUID(queries.Get("movement_type_id"))
-	if err != nil {
-		response.WriteError(w, http.StatusBadRequest, response.APIError{
-			Code:    "invalid_movement_type_id",
-			Message: "invalid movement type ID format",
-		}, rid)
+	filters, apiErr := parseMovementQueryFilters(queries)
+	if apiErr != nil {
+		response.WriteError(w, http.StatusBadRequest, *apiErr, rid)
 		return
 	}
 
 	res, err := h.listUC.Execute(r.Context(), list.Command{
 		UserID:         subID,
-		AccountID:      accountID,
-		CategoryID:     categoryID,
-		MovementTypeID: movementTypeID,
+		AccountID:      filters.AccountID,
+		CategoryID:     filters.CategoryID,
+		MovementTypeID: filters.MovementTypeID,
+		DateFrom:       filters.DateFrom,
+		DateTo:         filters.DateTo,
 		CreatedAt:      createdAt,
 		MovementID:     movementID,
 		Limit:          limit,
@@ -126,7 +107,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, movement := range res.Movements {
-		resp.Movements = append(resp.Movements, mapMovementDetails(movement))
+		resp.Movements = append(resp.Movements, mapMovementDetails(movement, language))
 	}
 
 	if len(res.Movements) > 0 {

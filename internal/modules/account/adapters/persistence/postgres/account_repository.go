@@ -5,23 +5,43 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	accountdb "github.com/zchelalo/expense-control-back/internal/db/sqlc/account"
 	"github.com/zchelalo/expense-control-back/internal/modules/account/domain"
 	"github.com/zchelalo/expense-control-back/internal/modules/account/ports"
+	movementdomain "github.com/zchelalo/expense-control-back/internal/modules/movement/domain"
+	"github.com/zchelalo/expense-control-back/internal/shared/localization"
 	pgutil "github.com/zchelalo/expense-control-back/internal/shared/postgresutil"
 )
 
-type AccountRepo struct {
-	q *accountdb.Queries
+type accountTxDB interface {
+	accountdb.DBTX
+	BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error)
 }
 
-func NewAccountRepo(db accountdb.DBTX) *AccountRepo {
-	return &AccountRepo{q: accountdb.New(db)}
+type AccountRepo struct {
+	db accountTxDB
+	q  *accountdb.Queries
+}
+
+func NewAccountRepo(db accountTxDB) *AccountRepo {
+	return &AccountRepo{
+		db: db,
+		q:  accountdb.New(db),
+	}
 }
 
 func (r *AccountRepo) Create(ctx context.Context, s domain.Account) error {
+	tx, err := r.db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	q := r.q.WithTx(tx)
+
 	balance, err := pgutil.NumericFromFloat64(s.Balance().Float64())
 	if err != nil {
 		return err
@@ -37,8 +57,59 @@ func (r *AccountRepo) Create(ctx context.Context, s domain.Account) error {
 		DeletedAt: pgutil.OptionalTimestamptz(s.DeletedAt()),
 	}
 
-	err = r.q.CreateAccount(ctx, params)
-	return err
+	if err := q.CreateAccount(ctx, params); err != nil {
+		return err
+	}
+
+	if s.Balance().Float64() <= 0 {
+		return tx.Commit(ctx)
+	}
+
+	incomeMovementTypeID, err := q.GetMovementTypeIDByKey(ctx, movementdomain.MovementTypeKeyIncome)
+	if err != nil {
+		return err
+	}
+
+	systemCategoryID := uuid.New()
+	systemCategoryIDValue, err := q.UpsertSystemCategoryByKey(ctx, accountdb.UpsertSystemCategoryByKeyParams{
+		ID:        pgtype.UUID{Bytes: systemCategoryID, Valid: true},
+		Name:      localization.SystemCategoryOpeningBalanceInternalName,
+		SystemKey: pgtype.Text{String: localization.SystemCategoryOpeningBalanceKey, Valid: true},
+		CreatedAt: pgutil.Timestamptz(s.CreatedAt()),
+		UpdatedAt: pgutil.Timestamptz(s.UpdatedAt()),
+		DeletedAt: pgutil.OptionalTimestamptz(nil),
+	})
+	if err != nil {
+		return err
+	}
+
+	if _, err := q.UpsertUserCategory(ctx, accountdb.UpsertUserCategoryParams{
+		UserID:     pgutil.UUID(s.UserID()),
+		CategoryID: systemCategoryIDValue,
+		CreatedAt:  pgutil.Timestamptz(s.CreatedAt()),
+		UpdatedAt:  pgutil.Timestamptz(s.UpdatedAt()),
+		DeletedAt:  pgutil.OptionalTimestamptz(nil),
+	}); err != nil {
+		return err
+	}
+
+	initialMovementID := uuid.New()
+	if err := q.CreateInitialBalanceMovement(ctx, accountdb.CreateInitialBalanceMovementParams{
+		ID:             pgtype.UUID{Bytes: initialMovementID, Valid: true},
+		Amount:         balance,
+		Description:    localization.SystemCategoryOpeningBalanceInternalName,
+		MovementTypeID: incomeMovementTypeID,
+		CategoryID:     systemCategoryIDValue,
+		AccountID:      pgutil.UUID(s.ID()),
+		UserID:         pgutil.UUID(s.UserID()),
+		CreatedAt:      pgutil.Timestamptz(s.CreatedAt()),
+		UpdatedAt:      pgutil.Timestamptz(s.UpdatedAt()),
+		DeletedAt:      pgutil.OptionalTimestamptz(nil),
+	}); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (r *AccountRepo) ByID(ctx context.Context, id domain.AccountID) (domain.Account, error) {

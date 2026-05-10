@@ -5,6 +5,7 @@ import (
 	"github.com/zchelalo/expense-control-back/internal/modules/movement/application/create"
 	"github.com/zchelalo/expense-control-back/internal/modules/movement/application/delete"
 	"github.com/zchelalo/expense-control-back/internal/modules/movement/application/list"
+	"github.com/zchelalo/expense-control-back/internal/modules/movement/application/stats"
 )
 
 type Handler struct {
@@ -12,6 +13,7 @@ type Handler struct {
 	listUC   *list.UseCase
 	byIDUC   *byid.UseCase
 	deleteUC *delete.UseCase
+	statsUC  *stats.UseCase
 }
 
 func NewHandler(
@@ -19,11 +21,13 @@ func NewHandler(
 	listUC *list.UseCase,
 	byIDUC *byid.UseCase,
 	deleteUC *delete.UseCase,
+	statsUC *stats.UseCase,
 ) *Handler {
 	return &Handler{
 		createUC: createUC,
 		listUC:   listUC,
 		byIDUC:   byIDUC,
 		deleteUC: deleteUC,
+		statsUC:  statsUC,
 	}
 }

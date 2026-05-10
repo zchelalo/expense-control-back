@@ -35,6 +35,8 @@ type Category struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
+	IsSystem  bool               `json:"is_system"`
+	SystemKey pgtype.Text        `json:"system_key"`
 }
 
 type Movement struct {

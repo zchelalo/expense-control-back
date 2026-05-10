@@ -30,6 +30,7 @@ import (
 	movementcreateuc "github.com/zchelalo/expense-control-back/internal/modules/movement/application/create"
 	movementdeleteuc "github.com/zchelalo/expense-control-back/internal/modules/movement/application/delete"
 	movementlistuc "github.com/zchelalo/expense-control-back/internal/modules/movement/application/list"
+	movementstatsuc "github.com/zchelalo/expense-control-back/internal/modules/movement/application/stats"
 	movementtypehttp "github.com/zchelalo/expense-control-back/internal/modules/movementtype/adapters/http/v1"
 	movementtypepg "github.com/zchelalo/expense-control-back/internal/modules/movementtype/adapters/persistence/postgres"
 	movementtypelistuc "github.com/zchelalo/expense-control-back/internal/modules/movementtype/application/list"
@@ -134,6 +135,10 @@ func InitApp(log *zap.Logger, cfg Config) (*App, error) {
 		movementUserReferenceStore,
 		cfg.PaginatorLimitDefault,
 	)
+	statsMovementsUseCase := movementstatsuc.New(
+		movementQuery,
+		movementUserReferenceStore,
+	)
 	byIDMovementUseCase := movementbyiduc.New(
 		movementQuery,
 		movementUserReferenceStore,
@@ -149,6 +154,7 @@ func InitApp(log *zap.Logger, cfg Config) (*App, error) {
 		listMovementsUseCase,
 		byIDMovementUseCase,
 		deleteMovementUseCase,
+		statsMovementsUseCase,
 		mdw,
 	)
 

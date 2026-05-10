@@ -72,14 +72,18 @@ func (q *Queries) DeleteUserCategory(ctx context.Context, arg DeleteUserCategory
 
 const getUserCategoryByUserIDAndCategoryID = `-- name: GetUserCategoryByUserIDAndCategoryID :one
 SELECT
-  user_id,
-  category_id,
-  created_at,
-  updated_at,
-  deleted_at
-FROM user_categories
-WHERE user_id = $1
-  AND category_id = $2
+  uc.user_id,
+  uc.category_id,
+  uc.created_at,
+  uc.updated_at,
+  uc.deleted_at,
+  c.is_system
+FROM user_categories uc
+INNER JOIN categories c
+  ON c.id = uc.category_id
+ AND c.deleted_at IS NULL
+WHERE uc.user_id = $1
+  AND uc.category_id = $2
 `
 
 type GetUserCategoryByUserIDAndCategoryIDParams struct {
@@ -87,15 +91,25 @@ type GetUserCategoryByUserIDAndCategoryIDParams struct {
 	CategoryID pgtype.UUID `json:"category_id"`
 }
 
-func (q *Queries) GetUserCategoryByUserIDAndCategoryID(ctx context.Context, arg GetUserCategoryByUserIDAndCategoryIDParams) (UserCategory, error) {
+type GetUserCategoryByUserIDAndCategoryIDRow struct {
+	UserID     pgtype.UUID        `json:"user_id"`
+	CategoryID pgtype.UUID        `json:"category_id"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt  pgtype.Timestamptz `json:"deleted_at"`
+	IsSystem   bool               `json:"is_system"`
+}
+
+func (q *Queries) GetUserCategoryByUserIDAndCategoryID(ctx context.Context, arg GetUserCategoryByUserIDAndCategoryIDParams) (GetUserCategoryByUserIDAndCategoryIDRow, error) {
 	row := q.db.QueryRow(ctx, getUserCategoryByUserIDAndCategoryID, arg.UserID, arg.CategoryID)
-	var i UserCategory
+	var i GetUserCategoryByUserIDAndCategoryIDRow
 	err := row.Scan(
 		&i.UserID,
 		&i.CategoryID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.IsSystem,
 	)
 	return i, err
 }
@@ -113,6 +127,7 @@ INNER JOIN categories c
  AND c.deleted_at IS NULL
 WHERE uc.user_id = $1
   AND uc.deleted_at IS NULL
+  AND c.is_system = FALSE
   AND (
     $2::timestamptz IS NULL
     OR (uc.created_at, uc.category_id) < (
@@ -186,6 +201,7 @@ INNER JOIN categories c
  AND c.deleted_at IS NULL
 WHERE uc.user_id = $1
   AND uc.deleted_at IS NULL
+  AND c.is_system = FALSE
   AND (
     $2::timestamptz IS NULL
     OR (uc.created_at, uc.category_id) > (
@@ -250,6 +266,8 @@ const upsertCategoryByName = `-- name: UpsertCategoryByName :one
 INSERT INTO categories (
   id,
   name,
+  is_system,
+  system_key,
   created_at,
   updated_at,
   deleted_at
@@ -257,11 +275,13 @@ INSERT INTO categories (
 VALUES (
   $1,
   $2,
+  FALSE,
+  NULL,
   $3,
   $4,
   $5
 )
-ON CONFLICT (name) DO UPDATE
+ON CONFLICT (name) WHERE is_system = FALSE DO UPDATE
 SET
   deleted_at = NULL
 RETURNING id, name

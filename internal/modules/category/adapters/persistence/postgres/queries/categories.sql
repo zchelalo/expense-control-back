@@ -2,6 +2,8 @@
 INSERT INTO categories (
   id,
   name,
+  is_system,
+  system_key,
   created_at,
   updated_at,
   deleted_at
@@ -9,11 +11,13 @@ INSERT INTO categories (
 VALUES (
   sqlc.arg('id'),
   sqlc.arg('name'),
+  FALSE,
+  NULL,
   sqlc.arg('created_at'),
   sqlc.arg('updated_at'),
   sqlc.arg('deleted_at')
 )
-ON CONFLICT (name) DO UPDATE
+ON CONFLICT (name) WHERE is_system = FALSE DO UPDATE
 SET
   deleted_at = NULL
 RETURNING id, name
@@ -46,14 +50,18 @@ RETURNING user_id, category_id, created_at, updated_at
 
 -- name: GetUserCategoryByUserIDAndCategoryID :one
 SELECT
-  user_id,
-  category_id,
-  created_at,
-  updated_at,
-  deleted_at
-FROM user_categories
-WHERE user_id = sqlc.arg('user_id')
-  AND category_id = sqlc.arg('category_id')
+  uc.user_id,
+  uc.category_id,
+  uc.created_at,
+  uc.updated_at,
+  uc.deleted_at,
+  c.is_system
+FROM user_categories uc
+INNER JOIN categories c
+  ON c.id = uc.category_id
+ AND c.deleted_at IS NULL
+WHERE uc.user_id = sqlc.arg('user_id')
+  AND uc.category_id = sqlc.arg('category_id')
 ;
 
 -- name: CategoryHasActiveMovementsForUser :one
@@ -96,6 +104,7 @@ INNER JOIN categories c
  AND c.deleted_at IS NULL
 WHERE uc.user_id = sqlc.arg('user_id')
   AND uc.deleted_at IS NULL
+  AND c.is_system = FALSE
   AND (
     sqlc.narg('cursor_created_at')::timestamptz IS NULL
     OR (uc.created_at, uc.category_id) < (
@@ -121,6 +130,7 @@ INNER JOIN categories c
  AND c.deleted_at IS NULL
 WHERE uc.user_id = sqlc.arg('user_id')
   AND uc.deleted_at IS NULL
+  AND c.is_system = FALSE
   AND (
     sqlc.narg('cursor_created_at')::timestamptz IS NULL
     OR (uc.created_at, uc.category_id) > (

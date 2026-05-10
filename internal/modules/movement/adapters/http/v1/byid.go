@@ -34,6 +34,8 @@ func (h *Handler) ByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	language := requestLanguage(r.Header.Get("Accept-Language"))
+
 	res, err := h.byIDUC.Execute(r.Context(), byid.Command{
 		UserID:     subID,
 		MovementID: movementID,
@@ -45,6 +47,6 @@ func (h *Handler) ByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.WriteJSON(w, http.StatusOK, byIDResponse{
-		Movement: mapMovementDetails(res.Movement),
+		Movement: mapMovementDetails(res.Movement, language),
 	}, nil, rid)
 }

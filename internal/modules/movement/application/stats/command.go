@@ -1,4 +1,4 @@
-package list
+package stats
 
 import (
 	"time"
@@ -13,8 +13,4 @@ type Command struct {
 	MovementTypeID *uuid.UUID
 	DateFrom       *time.Time
 	DateTo         *time.Time
-	CreatedAt      *time.Time
-	MovementID     *uuid.UUID
-	Limit          int
-	IsBefore       bool
 }

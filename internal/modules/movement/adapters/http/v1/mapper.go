@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/zchelalo/expense-control-back/internal/modules/movement/application/list"
+	"github.com/zchelalo/expense-control-back/internal/modules/movement/application/stats"
 	"github.com/zchelalo/expense-control-back/internal/modules/movement/domain"
 	"github.com/zchelalo/expense-control-back/internal/modules/movement/ports"
 	"github.com/zchelalo/expense-control-back/pkg/response"
@@ -70,6 +71,12 @@ func mapError(err error) (int, response.APIError) {
 	if errors.Is(err, list.ErrCreatedAtWithoutMovementID) || errors.Is(err, list.ErrMovementIDWithoutCreatedAt) {
 		return http.StatusBadRequest, response.APIError{
 			Code:    "invalid_cursor",
+			Message: err.Error(),
+		}
+	}
+	if errors.Is(err, list.ErrDateFromAfterDateTo) || errors.Is(err, stats.ErrDateFromAfterDateTo) {
+		return http.StatusBadRequest, response.APIError{
+			Code:    "invalid_date_range",
 			Message: err.Error(),
 		}
 	}

@@ -98,5 +98,5 @@ func (r *CategoryReferenceRepository) ByIDForUser(ctx context.Context, categoryI
 		return domain.Category{}, err
 	}
 
-	return domain.RehydrateCategory(categoryID, category.Name)
+	return domain.RehydrateCategory(categoryID, category.Name, category.IsSystem, category.SystemKey.String)
 }

@@ -124,6 +124,15 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 		return Result{}, ErrCreatedAtWithoutMovementID
 	}
 
+	if cmd.DateFrom != nil && cmd.DateTo != nil && cmd.DateFrom.After(*cmd.DateTo) {
+		log.Warn("invalid date range in list movements request",
+			zap.String("stage", "validate_input"),
+			zap.Time("date_from", *cmd.DateFrom),
+			zap.Time("date_to", *cmd.DateTo),
+		)
+		return Result{}, ErrDateFromAfterDateTo
+	}
+
 	exists, err := uc.users.Exists(ctx, userID)
 	if err != nil {
 		log.Error("failed to check if user exists",
@@ -144,6 +153,8 @@ func (uc *UseCase) Execute(ctx context.Context, cmd Command) (Result, error) {
 		AccountID:      accountID,
 		CategoryID:     categoryID,
 		MovementTypeID: movementTypeID,
+		DateFrom:       cmd.DateFrom,
+		DateTo:         cmd.DateTo,
 		CreatedAt:      cmd.CreatedAt,
 		MovementID:     movementID,
 		Limit:          cmd.Limit,

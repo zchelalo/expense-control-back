@@ -146,6 +146,8 @@ SELECT
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
   c.name AS category_name,
+  c.is_system AS category_is_system,
+  c.system_key AS category_system_key,
   a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
@@ -165,20 +167,22 @@ type GetMovementDetailsByIDForUserParams struct {
 }
 
 type GetMovementDetailsByIDForUserRow struct {
-	ID               pgtype.UUID        `json:"id"`
-	Amount           pgtype.Numeric     `json:"amount"`
-	Description      string             `json:"description"`
-	MovementTypeID   pgtype.UUID        `json:"movement_type_id"`
-	CategoryID       pgtype.UUID        `json:"category_id"`
-	AccountID        pgtype.UUID        `json:"account_id"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
-	MovementTypeKey  string             `json:"movement_type_key"`
-	MovementTypeName string             `json:"movement_type_name"`
-	CategoryName     string             `json:"category_name"`
-	AccountName      string             `json:"account_name"`
+	ID                pgtype.UUID        `json:"id"`
+	Amount            pgtype.Numeric     `json:"amount"`
+	Description       string             `json:"description"`
+	MovementTypeID    pgtype.UUID        `json:"movement_type_id"`
+	CategoryID        pgtype.UUID        `json:"category_id"`
+	AccountID         pgtype.UUID        `json:"account_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+	MovementTypeKey   string             `json:"movement_type_key"`
+	MovementTypeName  string             `json:"movement_type_name"`
+	CategoryName      string             `json:"category_name"`
+	CategoryIsSystem  bool               `json:"category_is_system"`
+	CategorySystemKey pgtype.Text        `json:"category_system_key"`
+	AccountName       string             `json:"account_name"`
 }
 
 func (q *Queries) GetMovementDetailsByIDForUser(ctx context.Context, arg GetMovementDetailsByIDForUserParams) (GetMovementDetailsByIDForUserRow, error) {
@@ -198,9 +202,338 @@ func (q *Queries) GetMovementDetailsByIDForUser(ctx context.Context, arg GetMove
 		&i.MovementTypeKey,
 		&i.MovementTypeName,
 		&i.CategoryName,
+		&i.CategoryIsSystem,
+		&i.CategorySystemKey,
 		&i.AccountName,
 	)
 	return i, err
+}
+
+const getMovementStatsOverviewByUserID = `-- name: GetMovementStatsOverviewByUserID :one
+WITH filtered AS (
+  SELECT
+    m.amount,
+    mt.key AS movement_type_key
+  FROM movements m
+  INNER JOIN movement_types mt
+    ON mt.id = m.movement_type_id
+   AND mt.deleted_at IS NULL
+  INNER JOIN categories c
+    ON c.id = m.category_id
+   AND c.deleted_at IS NULL
+  INNER JOIN accounts a
+    ON a.id = m.account_id
+   AND a.deleted_at IS NULL
+  WHERE m.user_id = $1
+    AND m.deleted_at IS NULL
+    AND (
+      $2::uuid IS NULL
+      OR m.account_id = $2::uuid
+    )
+    AND (
+      $3::uuid IS NULL
+      OR m.category_id = $3::uuid
+    )
+    AND (
+      $4::uuid IS NULL
+      OR m.movement_type_id = $4::uuid
+    )
+    AND (
+      $5::timestamptz IS NULL
+      OR m.created_at >= $5::timestamptz
+    )
+    AND (
+      $6::timestamptz IS NULL
+      OR m.created_at <= $6::timestamptz
+    )
+)
+SELECT
+  COUNT(*)::bigint AS total_movements,
+  COUNT(*) FILTER (WHERE movement_type_key = 'income')::bigint AS income_count,
+  COUNT(*) FILTER (WHERE movement_type_key = 'expense')::bigint AS expense_count,
+  COALESCE(SUM(amount) FILTER (WHERE movement_type_key = 'income'), 0)::numeric AS income_total,
+  COALESCE(SUM(amount) FILTER (WHERE movement_type_key = 'expense'), 0)::numeric AS expense_total,
+  COALESCE(SUM(CASE
+    WHEN movement_type_key = 'income' THEN amount
+    WHEN movement_type_key = 'expense' THEN -amount
+    ELSE 0
+  END), 0)::numeric AS net_total
+FROM filtered
+`
+
+type GetMovementStatsOverviewByUserIDParams struct {
+	UserID         pgtype.UUID        `json:"user_id"`
+	AccountID      pgtype.UUID        `json:"account_id"`
+	CategoryID     pgtype.UUID        `json:"category_id"`
+	MovementTypeID pgtype.UUID        `json:"movement_type_id"`
+	DateFrom       pgtype.Timestamptz `json:"date_from"`
+	DateTo         pgtype.Timestamptz `json:"date_to"`
+}
+
+type GetMovementStatsOverviewByUserIDRow struct {
+	TotalMovements int64          `json:"total_movements"`
+	IncomeCount    int64          `json:"income_count"`
+	ExpenseCount   int64          `json:"expense_count"`
+	IncomeTotal    pgtype.Numeric `json:"income_total"`
+	ExpenseTotal   pgtype.Numeric `json:"expense_total"`
+	NetTotal       pgtype.Numeric `json:"net_total"`
+}
+
+func (q *Queries) GetMovementStatsOverviewByUserID(ctx context.Context, arg GetMovementStatsOverviewByUserIDParams) (GetMovementStatsOverviewByUserIDRow, error) {
+	row := q.db.QueryRow(ctx, getMovementStatsOverviewByUserID,
+		arg.UserID,
+		arg.AccountID,
+		arg.CategoryID,
+		arg.MovementTypeID,
+		arg.DateFrom,
+		arg.DateTo,
+	)
+	var i GetMovementStatsOverviewByUserIDRow
+	err := row.Scan(
+		&i.TotalMovements,
+		&i.IncomeCount,
+		&i.ExpenseCount,
+		&i.IncomeTotal,
+		&i.ExpenseTotal,
+		&i.NetTotal,
+	)
+	return i, err
+}
+
+const listMovementStatsByAccountByUserID = `-- name: ListMovementStatsByAccountByUserID :many
+WITH filtered AS (
+  SELECT
+    a.id AS account_id,
+    a.name AS account_name,
+    m.amount,
+    mt.key AS movement_type_key
+  FROM movements m
+  INNER JOIN movement_types mt
+    ON mt.id = m.movement_type_id
+   AND mt.deleted_at IS NULL
+  INNER JOIN categories c
+    ON c.id = m.category_id
+   AND c.deleted_at IS NULL
+  INNER JOIN accounts a
+    ON a.id = m.account_id
+   AND a.deleted_at IS NULL
+  WHERE m.user_id = $1
+    AND m.deleted_at IS NULL
+    AND (
+      $2::uuid IS NULL
+      OR m.account_id = $2::uuid
+    )
+    AND (
+      $3::uuid IS NULL
+      OR m.category_id = $3::uuid
+    )
+    AND (
+      $4::uuid IS NULL
+      OR m.movement_type_id = $4::uuid
+    )
+    AND (
+      $5::timestamptz IS NULL
+      OR m.created_at >= $5::timestamptz
+    )
+    AND (
+      $6::timestamptz IS NULL
+      OR m.created_at <= $6::timestamptz
+    )
+)
+SELECT
+  account_id,
+  account_name,
+  COUNT(*)::bigint AS movement_count,
+  COUNT(*) FILTER (WHERE movement_type_key = 'income')::bigint AS income_count,
+  COUNT(*) FILTER (WHERE movement_type_key = 'expense')::bigint AS expense_count,
+  COALESCE(SUM(amount) FILTER (WHERE movement_type_key = 'income'), 0)::numeric AS income_total,
+  COALESCE(SUM(amount) FILTER (WHERE movement_type_key = 'expense'), 0)::numeric AS expense_total,
+  COALESCE(SUM(CASE
+    WHEN movement_type_key = 'income' THEN amount
+    WHEN movement_type_key = 'expense' THEN -amount
+    ELSE 0
+  END), 0)::numeric AS net_total
+FROM filtered
+GROUP BY account_id, account_name
+ORDER BY expense_total DESC, movement_count DESC, account_name ASC
+`
+
+type ListMovementStatsByAccountByUserIDParams struct {
+	UserID         pgtype.UUID        `json:"user_id"`
+	AccountID      pgtype.UUID        `json:"account_id"`
+	CategoryID     pgtype.UUID        `json:"category_id"`
+	MovementTypeID pgtype.UUID        `json:"movement_type_id"`
+	DateFrom       pgtype.Timestamptz `json:"date_from"`
+	DateTo         pgtype.Timestamptz `json:"date_to"`
+}
+
+type ListMovementStatsByAccountByUserIDRow struct {
+	AccountID     pgtype.UUID    `json:"account_id"`
+	AccountName   string         `json:"account_name"`
+	MovementCount int64          `json:"movement_count"`
+	IncomeCount   int64          `json:"income_count"`
+	ExpenseCount  int64          `json:"expense_count"`
+	IncomeTotal   pgtype.Numeric `json:"income_total"`
+	ExpenseTotal  pgtype.Numeric `json:"expense_total"`
+	NetTotal      pgtype.Numeric `json:"net_total"`
+}
+
+func (q *Queries) ListMovementStatsByAccountByUserID(ctx context.Context, arg ListMovementStatsByAccountByUserIDParams) ([]ListMovementStatsByAccountByUserIDRow, error) {
+	rows, err := q.db.Query(ctx, listMovementStatsByAccountByUserID,
+		arg.UserID,
+		arg.AccountID,
+		arg.CategoryID,
+		arg.MovementTypeID,
+		arg.DateFrom,
+		arg.DateTo,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListMovementStatsByAccountByUserIDRow{}
+	for rows.Next() {
+		var i ListMovementStatsByAccountByUserIDRow
+		if err := rows.Scan(
+			&i.AccountID,
+			&i.AccountName,
+			&i.MovementCount,
+			&i.IncomeCount,
+			&i.ExpenseCount,
+			&i.IncomeTotal,
+			&i.ExpenseTotal,
+			&i.NetTotal,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMovementStatsByCategoryByUserID = `-- name: ListMovementStatsByCategoryByUserID :many
+WITH filtered AS (
+  SELECT
+    c.id AS category_id,
+    c.name AS category_name,
+    c.is_system AS category_is_system,
+    c.system_key AS category_system_key,
+    m.amount,
+    mt.key AS movement_type_key
+  FROM movements m
+  INNER JOIN movement_types mt
+    ON mt.id = m.movement_type_id
+   AND mt.deleted_at IS NULL
+  INNER JOIN categories c
+    ON c.id = m.category_id
+   AND c.deleted_at IS NULL
+  INNER JOIN accounts a
+    ON a.id = m.account_id
+   AND a.deleted_at IS NULL
+  WHERE m.user_id = $1
+    AND m.deleted_at IS NULL
+    AND (
+      $2::uuid IS NULL
+      OR m.account_id = $2::uuid
+    )
+    AND (
+      $3::uuid IS NULL
+      OR m.category_id = $3::uuid
+    )
+    AND (
+      $4::uuid IS NULL
+      OR m.movement_type_id = $4::uuid
+    )
+    AND (
+      $5::timestamptz IS NULL
+      OR m.created_at >= $5::timestamptz
+    )
+    AND (
+      $6::timestamptz IS NULL
+      OR m.created_at <= $6::timestamptz
+    )
+)
+SELECT
+  category_id,
+  category_name,
+  category_is_system,
+  category_system_key,
+  COUNT(*)::bigint AS movement_count,
+  COUNT(*) FILTER (WHERE movement_type_key = 'income')::bigint AS income_count,
+  COUNT(*) FILTER (WHERE movement_type_key = 'expense')::bigint AS expense_count,
+  COALESCE(SUM(amount) FILTER (WHERE movement_type_key = 'income'), 0)::numeric AS income_total,
+  COALESCE(SUM(amount) FILTER (WHERE movement_type_key = 'expense'), 0)::numeric AS expense_total,
+  COALESCE(SUM(CASE
+    WHEN movement_type_key = 'income' THEN amount
+    WHEN movement_type_key = 'expense' THEN -amount
+    ELSE 0
+  END), 0)::numeric AS net_total
+FROM filtered
+GROUP BY category_id, category_name, category_is_system, category_system_key
+ORDER BY expense_total DESC, movement_count DESC, category_name ASC
+`
+
+type ListMovementStatsByCategoryByUserIDParams struct {
+	UserID         pgtype.UUID        `json:"user_id"`
+	AccountID      pgtype.UUID        `json:"account_id"`
+	CategoryID     pgtype.UUID        `json:"category_id"`
+	MovementTypeID pgtype.UUID        `json:"movement_type_id"`
+	DateFrom       pgtype.Timestamptz `json:"date_from"`
+	DateTo         pgtype.Timestamptz `json:"date_to"`
+}
+
+type ListMovementStatsByCategoryByUserIDRow struct {
+	CategoryID        pgtype.UUID    `json:"category_id"`
+	CategoryName      string         `json:"category_name"`
+	CategoryIsSystem  bool           `json:"category_is_system"`
+	CategorySystemKey pgtype.Text    `json:"category_system_key"`
+	MovementCount     int64          `json:"movement_count"`
+	IncomeCount       int64          `json:"income_count"`
+	ExpenseCount      int64          `json:"expense_count"`
+	IncomeTotal       pgtype.Numeric `json:"income_total"`
+	ExpenseTotal      pgtype.Numeric `json:"expense_total"`
+	NetTotal          pgtype.Numeric `json:"net_total"`
+}
+
+func (q *Queries) ListMovementStatsByCategoryByUserID(ctx context.Context, arg ListMovementStatsByCategoryByUserIDParams) ([]ListMovementStatsByCategoryByUserIDRow, error) {
+	rows, err := q.db.Query(ctx, listMovementStatsByCategoryByUserID,
+		arg.UserID,
+		arg.AccountID,
+		arg.CategoryID,
+		arg.MovementTypeID,
+		arg.DateFrom,
+		arg.DateTo,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListMovementStatsByCategoryByUserIDRow{}
+	for rows.Next() {
+		var i ListMovementStatsByCategoryByUserIDRow
+		if err := rows.Scan(
+			&i.CategoryID,
+			&i.CategoryName,
+			&i.CategoryIsSystem,
+			&i.CategorySystemKey,
+			&i.MovementCount,
+			&i.IncomeCount,
+			&i.ExpenseCount,
+			&i.IncomeTotal,
+			&i.ExpenseTotal,
+			&i.NetTotal,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listMovementsByUserIDAfter = `-- name: ListMovementsByUserIDAfter :many
@@ -221,13 +554,21 @@ WITH base AS (
     AND m.deleted_at IS NULL
     AND (
       $2::timestamptz IS NULL
+      OR m.created_at >= $2::timestamptz
+    )
+    AND (
+      $3::timestamptz IS NULL
+      OR m.created_at <= $3::timestamptz
+    )
+    AND (
+      $4::timestamptz IS NULL
       OR (m.created_at, m.id) < (
-        $2::timestamptz,
-        $3::uuid
+        $4::timestamptz,
+        $5::uuid
       )
     )
   ORDER BY m.created_at DESC, m.id DESC
-  LIMIT $4
+  LIMIT $6
 )
 SELECT
   base.id,
@@ -243,6 +584,8 @@ SELECT
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
   c.name AS category_name,
+  c.is_system AS category_is_system,
+  c.system_key AS category_system_key,
   a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
@@ -259,31 +602,37 @@ ORDER BY base.created_at DESC, base.id DESC
 
 type ListMovementsByUserIDAfterParams struct {
 	UserID           pgtype.UUID        `json:"user_id"`
+	DateFrom         pgtype.Timestamptz `json:"date_from"`
+	DateTo           pgtype.Timestamptz `json:"date_to"`
 	CursorCreatedAt  pgtype.Timestamptz `json:"cursor_created_at"`
 	CursorMovementID pgtype.UUID        `json:"cursor_movement_id"`
 	LimitCount       int32              `json:"limit_count"`
 }
 
 type ListMovementsByUserIDAfterRow struct {
-	ID               pgtype.UUID        `json:"id"`
-	Amount           pgtype.Numeric     `json:"amount"`
-	Description      string             `json:"description"`
-	MovementTypeID   pgtype.UUID        `json:"movement_type_id"`
-	CategoryID       pgtype.UUID        `json:"category_id"`
-	AccountID        pgtype.UUID        `json:"account_id"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
-	MovementTypeKey  string             `json:"movement_type_key"`
-	MovementTypeName string             `json:"movement_type_name"`
-	CategoryName     string             `json:"category_name"`
-	AccountName      string             `json:"account_name"`
+	ID                pgtype.UUID        `json:"id"`
+	Amount            pgtype.Numeric     `json:"amount"`
+	Description       string             `json:"description"`
+	MovementTypeID    pgtype.UUID        `json:"movement_type_id"`
+	CategoryID        pgtype.UUID        `json:"category_id"`
+	AccountID         pgtype.UUID        `json:"account_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+	MovementTypeKey   string             `json:"movement_type_key"`
+	MovementTypeName  string             `json:"movement_type_name"`
+	CategoryName      string             `json:"category_name"`
+	CategoryIsSystem  bool               `json:"category_is_system"`
+	CategorySystemKey pgtype.Text        `json:"category_system_key"`
+	AccountName       string             `json:"account_name"`
 }
 
 func (q *Queries) ListMovementsByUserIDAfter(ctx context.Context, arg ListMovementsByUserIDAfterParams) ([]ListMovementsByUserIDAfterRow, error) {
 	rows, err := q.db.Query(ctx, listMovementsByUserIDAfter,
 		arg.UserID,
+		arg.DateFrom,
+		arg.DateTo,
 		arg.CursorCreatedAt,
 		arg.CursorMovementID,
 		arg.LimitCount,
@@ -309,6 +658,8 @@ func (q *Queries) ListMovementsByUserIDAfter(ctx context.Context, arg ListMoveme
 			&i.MovementTypeKey,
 			&i.MovementTypeName,
 			&i.CategoryName,
+			&i.CategoryIsSystem,
+			&i.CategorySystemKey,
 			&i.AccountName,
 		); err != nil {
 			return nil, err
@@ -340,13 +691,21 @@ WITH base AS (
     AND m.deleted_at IS NULL
     AND (
       $3::timestamptz IS NULL
+      OR m.created_at >= $3::timestamptz
+    )
+    AND (
+      $4::timestamptz IS NULL
+      OR m.created_at <= $4::timestamptz
+    )
+    AND (
+      $5::timestamptz IS NULL
       OR (m.created_at, m.id) < (
-        $3::timestamptz,
-        $4::uuid
+        $5::timestamptz,
+        $6::uuid
       )
     )
   ORDER BY m.created_at DESC, m.id DESC
-  LIMIT $5
+  LIMIT $7
 )
 SELECT
   base.id,
@@ -362,6 +721,8 @@ SELECT
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
   c.name AS category_name,
+  c.is_system AS category_is_system,
+  c.system_key AS category_system_key,
   a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
@@ -379,32 +740,38 @@ ORDER BY base.created_at DESC, base.id DESC
 type ListMovementsByUserIDAndAccountIDAfterParams struct {
 	AccountID        pgtype.UUID        `json:"account_id"`
 	UserID           pgtype.UUID        `json:"user_id"`
+	DateFrom         pgtype.Timestamptz `json:"date_from"`
+	DateTo           pgtype.Timestamptz `json:"date_to"`
 	CursorCreatedAt  pgtype.Timestamptz `json:"cursor_created_at"`
 	CursorMovementID pgtype.UUID        `json:"cursor_movement_id"`
 	LimitCount       int32              `json:"limit_count"`
 }
 
 type ListMovementsByUserIDAndAccountIDAfterRow struct {
-	ID               pgtype.UUID        `json:"id"`
-	Amount           pgtype.Numeric     `json:"amount"`
-	Description      string             `json:"description"`
-	MovementTypeID   pgtype.UUID        `json:"movement_type_id"`
-	CategoryID       pgtype.UUID        `json:"category_id"`
-	AccountID        pgtype.UUID        `json:"account_id"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
-	MovementTypeKey  string             `json:"movement_type_key"`
-	MovementTypeName string             `json:"movement_type_name"`
-	CategoryName     string             `json:"category_name"`
-	AccountName      string             `json:"account_name"`
+	ID                pgtype.UUID        `json:"id"`
+	Amount            pgtype.Numeric     `json:"amount"`
+	Description       string             `json:"description"`
+	MovementTypeID    pgtype.UUID        `json:"movement_type_id"`
+	CategoryID        pgtype.UUID        `json:"category_id"`
+	AccountID         pgtype.UUID        `json:"account_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+	MovementTypeKey   string             `json:"movement_type_key"`
+	MovementTypeName  string             `json:"movement_type_name"`
+	CategoryName      string             `json:"category_name"`
+	CategoryIsSystem  bool               `json:"category_is_system"`
+	CategorySystemKey pgtype.Text        `json:"category_system_key"`
+	AccountName       string             `json:"account_name"`
 }
 
 func (q *Queries) ListMovementsByUserIDAndAccountIDAfter(ctx context.Context, arg ListMovementsByUserIDAndAccountIDAfterParams) ([]ListMovementsByUserIDAndAccountIDAfterRow, error) {
 	rows, err := q.db.Query(ctx, listMovementsByUserIDAndAccountIDAfter,
 		arg.AccountID,
 		arg.UserID,
+		arg.DateFrom,
+		arg.DateTo,
 		arg.CursorCreatedAt,
 		arg.CursorMovementID,
 		arg.LimitCount,
@@ -430,6 +797,8 @@ func (q *Queries) ListMovementsByUserIDAndAccountIDAfter(ctx context.Context, ar
 			&i.MovementTypeKey,
 			&i.MovementTypeName,
 			&i.CategoryName,
+			&i.CategoryIsSystem,
+			&i.CategorySystemKey,
 			&i.AccountName,
 		); err != nil {
 			return nil, err
@@ -459,12 +828,20 @@ WITH base AS (
   WHERE m.account_id = $1
     AND m.user_id = $2
     AND m.deleted_at IS NULL
+    AND (
+      $3::timestamptz IS NULL
+      OR m.created_at >= $3::timestamptz
+    )
+    AND (
+      $4::timestamptz IS NULL
+      OR m.created_at <= $4::timestamptz
+    )
     AND (m.created_at, m.id) > (
-      $3::timestamptz,
-      $4::uuid
+      $5::timestamptz,
+      $6::uuid
     )
   ORDER BY m.created_at ASC, m.id ASC
-  LIMIT $5
+  LIMIT $7
 )
 SELECT
   base.id,
@@ -480,6 +857,8 @@ SELECT
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
   c.name AS category_name,
+  c.is_system AS category_is_system,
+  c.system_key AS category_system_key,
   a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
@@ -497,32 +876,38 @@ ORDER BY base.created_at ASC, base.id ASC
 type ListMovementsByUserIDAndAccountIDBeforeParams struct {
 	AccountID        pgtype.UUID        `json:"account_id"`
 	UserID           pgtype.UUID        `json:"user_id"`
+	DateFrom         pgtype.Timestamptz `json:"date_from"`
+	DateTo           pgtype.Timestamptz `json:"date_to"`
 	CursorCreatedAt  pgtype.Timestamptz `json:"cursor_created_at"`
 	CursorMovementID pgtype.UUID        `json:"cursor_movement_id"`
 	LimitCount       int32              `json:"limit_count"`
 }
 
 type ListMovementsByUserIDAndAccountIDBeforeRow struct {
-	ID               pgtype.UUID        `json:"id"`
-	Amount           pgtype.Numeric     `json:"amount"`
-	Description      string             `json:"description"`
-	MovementTypeID   pgtype.UUID        `json:"movement_type_id"`
-	CategoryID       pgtype.UUID        `json:"category_id"`
-	AccountID        pgtype.UUID        `json:"account_id"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
-	MovementTypeKey  string             `json:"movement_type_key"`
-	MovementTypeName string             `json:"movement_type_name"`
-	CategoryName     string             `json:"category_name"`
-	AccountName      string             `json:"account_name"`
+	ID                pgtype.UUID        `json:"id"`
+	Amount            pgtype.Numeric     `json:"amount"`
+	Description       string             `json:"description"`
+	MovementTypeID    pgtype.UUID        `json:"movement_type_id"`
+	CategoryID        pgtype.UUID        `json:"category_id"`
+	AccountID         pgtype.UUID        `json:"account_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+	MovementTypeKey   string             `json:"movement_type_key"`
+	MovementTypeName  string             `json:"movement_type_name"`
+	CategoryName      string             `json:"category_name"`
+	CategoryIsSystem  bool               `json:"category_is_system"`
+	CategorySystemKey pgtype.Text        `json:"category_system_key"`
+	AccountName       string             `json:"account_name"`
 }
 
 func (q *Queries) ListMovementsByUserIDAndAccountIDBefore(ctx context.Context, arg ListMovementsByUserIDAndAccountIDBeforeParams) ([]ListMovementsByUserIDAndAccountIDBeforeRow, error) {
 	rows, err := q.db.Query(ctx, listMovementsByUserIDAndAccountIDBefore,
 		arg.AccountID,
 		arg.UserID,
+		arg.DateFrom,
+		arg.DateTo,
 		arg.CursorCreatedAt,
 		arg.CursorMovementID,
 		arg.LimitCount,
@@ -548,6 +933,8 @@ func (q *Queries) ListMovementsByUserIDAndAccountIDBefore(ctx context.Context, a
 			&i.MovementTypeKey,
 			&i.MovementTypeName,
 			&i.CategoryName,
+			&i.CategoryIsSystem,
+			&i.CategorySystemKey,
 			&i.AccountName,
 		); err != nil {
 			return nil, err
@@ -579,13 +966,21 @@ WITH base AS (
     AND m.deleted_at IS NULL
     AND (
       $3::timestamptz IS NULL
+      OR m.created_at >= $3::timestamptz
+    )
+    AND (
+      $4::timestamptz IS NULL
+      OR m.created_at <= $4::timestamptz
+    )
+    AND (
+      $5::timestamptz IS NULL
       OR (m.created_at, m.id) < (
-        $3::timestamptz,
-        $4::uuid
+        $5::timestamptz,
+        $6::uuid
       )
     )
   ORDER BY m.created_at DESC, m.id DESC
-  LIMIT $5
+  LIMIT $7
 )
 SELECT
   base.id,
@@ -601,6 +996,8 @@ SELECT
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
   c.name AS category_name,
+  c.is_system AS category_is_system,
+  c.system_key AS category_system_key,
   a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
@@ -618,32 +1015,38 @@ ORDER BY base.created_at DESC, base.id DESC
 type ListMovementsByUserIDAndCategoryIDAfterParams struct {
 	UserID           pgtype.UUID        `json:"user_id"`
 	CategoryID       pgtype.UUID        `json:"category_id"`
+	DateFrom         pgtype.Timestamptz `json:"date_from"`
+	DateTo           pgtype.Timestamptz `json:"date_to"`
 	CursorCreatedAt  pgtype.Timestamptz `json:"cursor_created_at"`
 	CursorMovementID pgtype.UUID        `json:"cursor_movement_id"`
 	LimitCount       int32              `json:"limit_count"`
 }
 
 type ListMovementsByUserIDAndCategoryIDAfterRow struct {
-	ID               pgtype.UUID        `json:"id"`
-	Amount           pgtype.Numeric     `json:"amount"`
-	Description      string             `json:"description"`
-	MovementTypeID   pgtype.UUID        `json:"movement_type_id"`
-	CategoryID       pgtype.UUID        `json:"category_id"`
-	AccountID        pgtype.UUID        `json:"account_id"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
-	MovementTypeKey  string             `json:"movement_type_key"`
-	MovementTypeName string             `json:"movement_type_name"`
-	CategoryName     string             `json:"category_name"`
-	AccountName      string             `json:"account_name"`
+	ID                pgtype.UUID        `json:"id"`
+	Amount            pgtype.Numeric     `json:"amount"`
+	Description       string             `json:"description"`
+	MovementTypeID    pgtype.UUID        `json:"movement_type_id"`
+	CategoryID        pgtype.UUID        `json:"category_id"`
+	AccountID         pgtype.UUID        `json:"account_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+	MovementTypeKey   string             `json:"movement_type_key"`
+	MovementTypeName  string             `json:"movement_type_name"`
+	CategoryName      string             `json:"category_name"`
+	CategoryIsSystem  bool               `json:"category_is_system"`
+	CategorySystemKey pgtype.Text        `json:"category_system_key"`
+	AccountName       string             `json:"account_name"`
 }
 
 func (q *Queries) ListMovementsByUserIDAndCategoryIDAfter(ctx context.Context, arg ListMovementsByUserIDAndCategoryIDAfterParams) ([]ListMovementsByUserIDAndCategoryIDAfterRow, error) {
 	rows, err := q.db.Query(ctx, listMovementsByUserIDAndCategoryIDAfter,
 		arg.UserID,
 		arg.CategoryID,
+		arg.DateFrom,
+		arg.DateTo,
 		arg.CursorCreatedAt,
 		arg.CursorMovementID,
 		arg.LimitCount,
@@ -669,6 +1072,8 @@ func (q *Queries) ListMovementsByUserIDAndCategoryIDAfter(ctx context.Context, a
 			&i.MovementTypeKey,
 			&i.MovementTypeName,
 			&i.CategoryName,
+			&i.CategoryIsSystem,
+			&i.CategorySystemKey,
 			&i.AccountName,
 		); err != nil {
 			return nil, err
@@ -698,12 +1103,20 @@ WITH base AS (
   WHERE m.user_id = $1
     AND m.category_id = $2
     AND m.deleted_at IS NULL
+    AND (
+      $3::timestamptz IS NULL
+      OR m.created_at >= $3::timestamptz
+    )
+    AND (
+      $4::timestamptz IS NULL
+      OR m.created_at <= $4::timestamptz
+    )
     AND (m.created_at, m.id) > (
-      $3::timestamptz,
-      $4::uuid
+      $5::timestamptz,
+      $6::uuid
     )
   ORDER BY m.created_at ASC, m.id ASC
-  LIMIT $5
+  LIMIT $7
 )
 SELECT
   base.id,
@@ -719,6 +1132,8 @@ SELECT
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
   c.name AS category_name,
+  c.is_system AS category_is_system,
+  c.system_key AS category_system_key,
   a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
@@ -736,32 +1151,38 @@ ORDER BY base.created_at ASC, base.id ASC
 type ListMovementsByUserIDAndCategoryIDBeforeParams struct {
 	UserID           pgtype.UUID        `json:"user_id"`
 	CategoryID       pgtype.UUID        `json:"category_id"`
+	DateFrom         pgtype.Timestamptz `json:"date_from"`
+	DateTo           pgtype.Timestamptz `json:"date_to"`
 	CursorCreatedAt  pgtype.Timestamptz `json:"cursor_created_at"`
 	CursorMovementID pgtype.UUID        `json:"cursor_movement_id"`
 	LimitCount       int32              `json:"limit_count"`
 }
 
 type ListMovementsByUserIDAndCategoryIDBeforeRow struct {
-	ID               pgtype.UUID        `json:"id"`
-	Amount           pgtype.Numeric     `json:"amount"`
-	Description      string             `json:"description"`
-	MovementTypeID   pgtype.UUID        `json:"movement_type_id"`
-	CategoryID       pgtype.UUID        `json:"category_id"`
-	AccountID        pgtype.UUID        `json:"account_id"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
-	MovementTypeKey  string             `json:"movement_type_key"`
-	MovementTypeName string             `json:"movement_type_name"`
-	CategoryName     string             `json:"category_name"`
-	AccountName      string             `json:"account_name"`
+	ID                pgtype.UUID        `json:"id"`
+	Amount            pgtype.Numeric     `json:"amount"`
+	Description       string             `json:"description"`
+	MovementTypeID    pgtype.UUID        `json:"movement_type_id"`
+	CategoryID        pgtype.UUID        `json:"category_id"`
+	AccountID         pgtype.UUID        `json:"account_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+	MovementTypeKey   string             `json:"movement_type_key"`
+	MovementTypeName  string             `json:"movement_type_name"`
+	CategoryName      string             `json:"category_name"`
+	CategoryIsSystem  bool               `json:"category_is_system"`
+	CategorySystemKey pgtype.Text        `json:"category_system_key"`
+	AccountName       string             `json:"account_name"`
 }
 
 func (q *Queries) ListMovementsByUserIDAndCategoryIDBefore(ctx context.Context, arg ListMovementsByUserIDAndCategoryIDBeforeParams) ([]ListMovementsByUserIDAndCategoryIDBeforeRow, error) {
 	rows, err := q.db.Query(ctx, listMovementsByUserIDAndCategoryIDBefore,
 		arg.UserID,
 		arg.CategoryID,
+		arg.DateFrom,
+		arg.DateTo,
 		arg.CursorCreatedAt,
 		arg.CursorMovementID,
 		arg.LimitCount,
@@ -787,6 +1208,8 @@ func (q *Queries) ListMovementsByUserIDAndCategoryIDBefore(ctx context.Context, 
 			&i.MovementTypeKey,
 			&i.MovementTypeName,
 			&i.CategoryName,
+			&i.CategoryIsSystem,
+			&i.CategorySystemKey,
 			&i.AccountName,
 		); err != nil {
 			return nil, err
@@ -818,13 +1241,21 @@ WITH base AS (
     AND m.deleted_at IS NULL
     AND (
       $3::timestamptz IS NULL
+      OR m.created_at >= $3::timestamptz
+    )
+    AND (
+      $4::timestamptz IS NULL
+      OR m.created_at <= $4::timestamptz
+    )
+    AND (
+      $5::timestamptz IS NULL
       OR (m.created_at, m.id) < (
-        $3::timestamptz,
-        $4::uuid
+        $5::timestamptz,
+        $6::uuid
       )
     )
   ORDER BY m.created_at DESC, m.id DESC
-  LIMIT $5
+  LIMIT $7
 )
 SELECT
   base.id,
@@ -840,6 +1271,8 @@ SELECT
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
   c.name AS category_name,
+  c.is_system AS category_is_system,
+  c.system_key AS category_system_key,
   a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
@@ -857,32 +1290,38 @@ ORDER BY base.created_at DESC, base.id DESC
 type ListMovementsByUserIDAndMovementTypeIDAfterParams struct {
 	UserID           pgtype.UUID        `json:"user_id"`
 	MovementTypeID   pgtype.UUID        `json:"movement_type_id"`
+	DateFrom         pgtype.Timestamptz `json:"date_from"`
+	DateTo           pgtype.Timestamptz `json:"date_to"`
 	CursorCreatedAt  pgtype.Timestamptz `json:"cursor_created_at"`
 	CursorMovementID pgtype.UUID        `json:"cursor_movement_id"`
 	LimitCount       int32              `json:"limit_count"`
 }
 
 type ListMovementsByUserIDAndMovementTypeIDAfterRow struct {
-	ID               pgtype.UUID        `json:"id"`
-	Amount           pgtype.Numeric     `json:"amount"`
-	Description      string             `json:"description"`
-	MovementTypeID   pgtype.UUID        `json:"movement_type_id"`
-	CategoryID       pgtype.UUID        `json:"category_id"`
-	AccountID        pgtype.UUID        `json:"account_id"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
-	MovementTypeKey  string             `json:"movement_type_key"`
-	MovementTypeName string             `json:"movement_type_name"`
-	CategoryName     string             `json:"category_name"`
-	AccountName      string             `json:"account_name"`
+	ID                pgtype.UUID        `json:"id"`
+	Amount            pgtype.Numeric     `json:"amount"`
+	Description       string             `json:"description"`
+	MovementTypeID    pgtype.UUID        `json:"movement_type_id"`
+	CategoryID        pgtype.UUID        `json:"category_id"`
+	AccountID         pgtype.UUID        `json:"account_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+	MovementTypeKey   string             `json:"movement_type_key"`
+	MovementTypeName  string             `json:"movement_type_name"`
+	CategoryName      string             `json:"category_name"`
+	CategoryIsSystem  bool               `json:"category_is_system"`
+	CategorySystemKey pgtype.Text        `json:"category_system_key"`
+	AccountName       string             `json:"account_name"`
 }
 
 func (q *Queries) ListMovementsByUserIDAndMovementTypeIDAfter(ctx context.Context, arg ListMovementsByUserIDAndMovementTypeIDAfterParams) ([]ListMovementsByUserIDAndMovementTypeIDAfterRow, error) {
 	rows, err := q.db.Query(ctx, listMovementsByUserIDAndMovementTypeIDAfter,
 		arg.UserID,
 		arg.MovementTypeID,
+		arg.DateFrom,
+		arg.DateTo,
 		arg.CursorCreatedAt,
 		arg.CursorMovementID,
 		arg.LimitCount,
@@ -908,6 +1347,8 @@ func (q *Queries) ListMovementsByUserIDAndMovementTypeIDAfter(ctx context.Contex
 			&i.MovementTypeKey,
 			&i.MovementTypeName,
 			&i.CategoryName,
+			&i.CategoryIsSystem,
+			&i.CategorySystemKey,
 			&i.AccountName,
 		); err != nil {
 			return nil, err
@@ -937,12 +1378,20 @@ WITH base AS (
   WHERE m.user_id = $1
     AND m.movement_type_id = $2
     AND m.deleted_at IS NULL
+    AND (
+      $3::timestamptz IS NULL
+      OR m.created_at >= $3::timestamptz
+    )
+    AND (
+      $4::timestamptz IS NULL
+      OR m.created_at <= $4::timestamptz
+    )
     AND (m.created_at, m.id) > (
-      $3::timestamptz,
-      $4::uuid
+      $5::timestamptz,
+      $6::uuid
     )
   ORDER BY m.created_at ASC, m.id ASC
-  LIMIT $5
+  LIMIT $7
 )
 SELECT
   base.id,
@@ -958,6 +1407,8 @@ SELECT
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
   c.name AS category_name,
+  c.is_system AS category_is_system,
+  c.system_key AS category_system_key,
   a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
@@ -975,32 +1426,38 @@ ORDER BY base.created_at ASC, base.id ASC
 type ListMovementsByUserIDAndMovementTypeIDBeforeParams struct {
 	UserID           pgtype.UUID        `json:"user_id"`
 	MovementTypeID   pgtype.UUID        `json:"movement_type_id"`
+	DateFrom         pgtype.Timestamptz `json:"date_from"`
+	DateTo           pgtype.Timestamptz `json:"date_to"`
 	CursorCreatedAt  pgtype.Timestamptz `json:"cursor_created_at"`
 	CursorMovementID pgtype.UUID        `json:"cursor_movement_id"`
 	LimitCount       int32              `json:"limit_count"`
 }
 
 type ListMovementsByUserIDAndMovementTypeIDBeforeRow struct {
-	ID               pgtype.UUID        `json:"id"`
-	Amount           pgtype.Numeric     `json:"amount"`
-	Description      string             `json:"description"`
-	MovementTypeID   pgtype.UUID        `json:"movement_type_id"`
-	CategoryID       pgtype.UUID        `json:"category_id"`
-	AccountID        pgtype.UUID        `json:"account_id"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
-	MovementTypeKey  string             `json:"movement_type_key"`
-	MovementTypeName string             `json:"movement_type_name"`
-	CategoryName     string             `json:"category_name"`
-	AccountName      string             `json:"account_name"`
+	ID                pgtype.UUID        `json:"id"`
+	Amount            pgtype.Numeric     `json:"amount"`
+	Description       string             `json:"description"`
+	MovementTypeID    pgtype.UUID        `json:"movement_type_id"`
+	CategoryID        pgtype.UUID        `json:"category_id"`
+	AccountID         pgtype.UUID        `json:"account_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+	MovementTypeKey   string             `json:"movement_type_key"`
+	MovementTypeName  string             `json:"movement_type_name"`
+	CategoryName      string             `json:"category_name"`
+	CategoryIsSystem  bool               `json:"category_is_system"`
+	CategorySystemKey pgtype.Text        `json:"category_system_key"`
+	AccountName       string             `json:"account_name"`
 }
 
 func (q *Queries) ListMovementsByUserIDAndMovementTypeIDBefore(ctx context.Context, arg ListMovementsByUserIDAndMovementTypeIDBeforeParams) ([]ListMovementsByUserIDAndMovementTypeIDBeforeRow, error) {
 	rows, err := q.db.Query(ctx, listMovementsByUserIDAndMovementTypeIDBefore,
 		arg.UserID,
 		arg.MovementTypeID,
+		arg.DateFrom,
+		arg.DateTo,
 		arg.CursorCreatedAt,
 		arg.CursorMovementID,
 		arg.LimitCount,
@@ -1026,6 +1483,8 @@ func (q *Queries) ListMovementsByUserIDAndMovementTypeIDBefore(ctx context.Conte
 			&i.MovementTypeKey,
 			&i.MovementTypeName,
 			&i.CategoryName,
+			&i.CategoryIsSystem,
+			&i.CategorySystemKey,
 			&i.AccountName,
 		); err != nil {
 			return nil, err
@@ -1054,12 +1513,20 @@ WITH base AS (
   FROM movements m
   WHERE m.user_id = $1
     AND m.deleted_at IS NULL
+    AND (
+      $2::timestamptz IS NULL
+      OR m.created_at >= $2::timestamptz
+    )
+    AND (
+      $3::timestamptz IS NULL
+      OR m.created_at <= $3::timestamptz
+    )
     AND (m.created_at, m.id) > (
-      $2::timestamptz,
-      $3::uuid
+      $4::timestamptz,
+      $5::uuid
     )
   ORDER BY m.created_at ASC, m.id ASC
-  LIMIT $4
+  LIMIT $6
 )
 SELECT
   base.id,
@@ -1075,6 +1542,8 @@ SELECT
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
   c.name AS category_name,
+  c.is_system AS category_is_system,
+  c.system_key AS category_system_key,
   a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
@@ -1091,31 +1560,37 @@ ORDER BY base.created_at ASC, base.id ASC
 
 type ListMovementsByUserIDBeforeParams struct {
 	UserID           pgtype.UUID        `json:"user_id"`
+	DateFrom         pgtype.Timestamptz `json:"date_from"`
+	DateTo           pgtype.Timestamptz `json:"date_to"`
 	CursorCreatedAt  pgtype.Timestamptz `json:"cursor_created_at"`
 	CursorMovementID pgtype.UUID        `json:"cursor_movement_id"`
 	LimitCount       int32              `json:"limit_count"`
 }
 
 type ListMovementsByUserIDBeforeRow struct {
-	ID               pgtype.UUID        `json:"id"`
-	Amount           pgtype.Numeric     `json:"amount"`
-	Description      string             `json:"description"`
-	MovementTypeID   pgtype.UUID        `json:"movement_type_id"`
-	CategoryID       pgtype.UUID        `json:"category_id"`
-	AccountID        pgtype.UUID        `json:"account_id"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
-	MovementTypeKey  string             `json:"movement_type_key"`
-	MovementTypeName string             `json:"movement_type_name"`
-	CategoryName     string             `json:"category_name"`
-	AccountName      string             `json:"account_name"`
+	ID                pgtype.UUID        `json:"id"`
+	Amount            pgtype.Numeric     `json:"amount"`
+	Description       string             `json:"description"`
+	MovementTypeID    pgtype.UUID        `json:"movement_type_id"`
+	CategoryID        pgtype.UUID        `json:"category_id"`
+	AccountID         pgtype.UUID        `json:"account_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+	MovementTypeKey   string             `json:"movement_type_key"`
+	MovementTypeName  string             `json:"movement_type_name"`
+	CategoryName      string             `json:"category_name"`
+	CategoryIsSystem  bool               `json:"category_is_system"`
+	CategorySystemKey pgtype.Text        `json:"category_system_key"`
+	AccountName       string             `json:"account_name"`
 }
 
 func (q *Queries) ListMovementsByUserIDBefore(ctx context.Context, arg ListMovementsByUserIDBeforeParams) ([]ListMovementsByUserIDBeforeRow, error) {
 	rows, err := q.db.Query(ctx, listMovementsByUserIDBefore,
 		arg.UserID,
+		arg.DateFrom,
+		arg.DateTo,
 		arg.CursorCreatedAt,
 		arg.CursorMovementID,
 		arg.LimitCount,
@@ -1141,6 +1616,8 @@ func (q *Queries) ListMovementsByUserIDBefore(ctx context.Context, arg ListMovem
 			&i.MovementTypeKey,
 			&i.MovementTypeName,
 			&i.CategoryName,
+			&i.CategoryIsSystem,
+			&i.CategorySystemKey,
 			&i.AccountName,
 		); err != nil {
 			return nil, err
@@ -1183,13 +1660,21 @@ WITH base AS (
     )
     AND (
       $5::timestamptz IS NULL
+      OR m.created_at >= $5::timestamptz
+    )
+    AND (
+      $6::timestamptz IS NULL
+      OR m.created_at <= $6::timestamptz
+    )
+    AND (
+      $7::timestamptz IS NULL
       OR (m.created_at, m.id) < (
-        $5::timestamptz,
-        $6::uuid
+        $7::timestamptz,
+        $8::uuid
       )
     )
   ORDER BY m.created_at DESC, m.id DESC
-  LIMIT $7
+  LIMIT $9
 )
 SELECT
   base.id,
@@ -1205,6 +1690,8 @@ SELECT
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
   c.name AS category_name,
+  c.is_system AS category_is_system,
+  c.system_key AS category_system_key,
   a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
@@ -1224,26 +1711,30 @@ type ListMovementsByUserIDFilteredAfterParams struct {
 	AccountID        pgtype.UUID        `json:"account_id"`
 	CategoryID       pgtype.UUID        `json:"category_id"`
 	MovementTypeID   pgtype.UUID        `json:"movement_type_id"`
+	DateFrom         pgtype.Timestamptz `json:"date_from"`
+	DateTo           pgtype.Timestamptz `json:"date_to"`
 	CursorCreatedAt  pgtype.Timestamptz `json:"cursor_created_at"`
 	CursorMovementID pgtype.UUID        `json:"cursor_movement_id"`
 	LimitCount       int32              `json:"limit_count"`
 }
 
 type ListMovementsByUserIDFilteredAfterRow struct {
-	ID               pgtype.UUID        `json:"id"`
-	Amount           pgtype.Numeric     `json:"amount"`
-	Description      string             `json:"description"`
-	MovementTypeID   pgtype.UUID        `json:"movement_type_id"`
-	CategoryID       pgtype.UUID        `json:"category_id"`
-	AccountID        pgtype.UUID        `json:"account_id"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
-	MovementTypeKey  string             `json:"movement_type_key"`
-	MovementTypeName string             `json:"movement_type_name"`
-	CategoryName     string             `json:"category_name"`
-	AccountName      string             `json:"account_name"`
+	ID                pgtype.UUID        `json:"id"`
+	Amount            pgtype.Numeric     `json:"amount"`
+	Description       string             `json:"description"`
+	MovementTypeID    pgtype.UUID        `json:"movement_type_id"`
+	CategoryID        pgtype.UUID        `json:"category_id"`
+	AccountID         pgtype.UUID        `json:"account_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+	MovementTypeKey   string             `json:"movement_type_key"`
+	MovementTypeName  string             `json:"movement_type_name"`
+	CategoryName      string             `json:"category_name"`
+	CategoryIsSystem  bool               `json:"category_is_system"`
+	CategorySystemKey pgtype.Text        `json:"category_system_key"`
+	AccountName       string             `json:"account_name"`
 }
 
 func (q *Queries) ListMovementsByUserIDFilteredAfter(ctx context.Context, arg ListMovementsByUserIDFilteredAfterParams) ([]ListMovementsByUserIDFilteredAfterRow, error) {
@@ -1252,6 +1743,8 @@ func (q *Queries) ListMovementsByUserIDFilteredAfter(ctx context.Context, arg Li
 		arg.AccountID,
 		arg.CategoryID,
 		arg.MovementTypeID,
+		arg.DateFrom,
+		arg.DateTo,
 		arg.CursorCreatedAt,
 		arg.CursorMovementID,
 		arg.LimitCount,
@@ -1277,6 +1770,8 @@ func (q *Queries) ListMovementsByUserIDFilteredAfter(ctx context.Context, arg Li
 			&i.MovementTypeKey,
 			&i.MovementTypeName,
 			&i.CategoryName,
+			&i.CategoryIsSystem,
+			&i.CategorySystemKey,
 			&i.AccountName,
 		); err != nil {
 			return nil, err
@@ -1317,12 +1812,20 @@ WITH base AS (
       $4::uuid IS NULL
       OR m.movement_type_id = $4::uuid
     )
+    AND (
+      $5::timestamptz IS NULL
+      OR m.created_at >= $5::timestamptz
+    )
+    AND (
+      $6::timestamptz IS NULL
+      OR m.created_at <= $6::timestamptz
+    )
     AND (m.created_at, m.id) > (
-      $5::timestamptz,
-      $6::uuid
+      $7::timestamptz,
+      $8::uuid
     )
   ORDER BY m.created_at ASC, m.id ASC
-  LIMIT $7
+  LIMIT $9
 )
 SELECT
   base.id,
@@ -1338,6 +1841,8 @@ SELECT
   mt.key AS movement_type_key,
   mt.name AS movement_type_name,
   c.name AS category_name,
+  c.is_system AS category_is_system,
+  c.system_key AS category_system_key,
   a.name AS account_name
 FROM base
 INNER JOIN movement_types mt
@@ -1357,26 +1862,30 @@ type ListMovementsByUserIDFilteredBeforeParams struct {
 	AccountID        pgtype.UUID        `json:"account_id"`
 	CategoryID       pgtype.UUID        `json:"category_id"`
 	MovementTypeID   pgtype.UUID        `json:"movement_type_id"`
+	DateFrom         pgtype.Timestamptz `json:"date_from"`
+	DateTo           pgtype.Timestamptz `json:"date_to"`
 	CursorCreatedAt  pgtype.Timestamptz `json:"cursor_created_at"`
 	CursorMovementID pgtype.UUID        `json:"cursor_movement_id"`
 	LimitCount       int32              `json:"limit_count"`
 }
 
 type ListMovementsByUserIDFilteredBeforeRow struct {
-	ID               pgtype.UUID        `json:"id"`
-	Amount           pgtype.Numeric     `json:"amount"`
-	Description      string             `json:"description"`
-	MovementTypeID   pgtype.UUID        `json:"movement_type_id"`
-	CategoryID       pgtype.UUID        `json:"category_id"`
-	AccountID        pgtype.UUID        `json:"account_id"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-	DeletedAt        pgtype.Timestamptz `json:"deleted_at"`
-	MovementTypeKey  string             `json:"movement_type_key"`
-	MovementTypeName string             `json:"movement_type_name"`
-	CategoryName     string             `json:"category_name"`
-	AccountName      string             `json:"account_name"`
+	ID                pgtype.UUID        `json:"id"`
+	Amount            pgtype.Numeric     `json:"amount"`
+	Description       string             `json:"description"`
+	MovementTypeID    pgtype.UUID        `json:"movement_type_id"`
+	CategoryID        pgtype.UUID        `json:"category_id"`
+	AccountID         pgtype.UUID        `json:"account_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+	MovementTypeKey   string             `json:"movement_type_key"`
+	MovementTypeName  string             `json:"movement_type_name"`
+	CategoryName      string             `json:"category_name"`
+	CategoryIsSystem  bool               `json:"category_is_system"`
+	CategorySystemKey pgtype.Text        `json:"category_system_key"`
+	AccountName       string             `json:"account_name"`
 }
 
 func (q *Queries) ListMovementsByUserIDFilteredBefore(ctx context.Context, arg ListMovementsByUserIDFilteredBeforeParams) ([]ListMovementsByUserIDFilteredBeforeRow, error) {
@@ -1385,6 +1894,8 @@ func (q *Queries) ListMovementsByUserIDFilteredBefore(ctx context.Context, arg L
 		arg.AccountID,
 		arg.CategoryID,
 		arg.MovementTypeID,
+		arg.DateFrom,
+		arg.DateTo,
 		arg.CursorCreatedAt,
 		arg.CursorMovementID,
 		arg.LimitCount,
@@ -1410,6 +1921,8 @@ func (q *Queries) ListMovementsByUserIDFilteredBefore(ctx context.Context, arg L
 			&i.MovementTypeKey,
 			&i.MovementTypeName,
 			&i.CategoryName,
+			&i.CategoryIsSystem,
+			&i.CategorySystemKey,
 			&i.AccountName,
 		); err != nil {
 			return nil, err

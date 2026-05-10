@@ -173,6 +173,9 @@ func (r *CategoryRepo) Delete(ctx context.Context, userID domain.UserID, categor
 
 		return err
 	}
+	if userCategory.IsSystem {
+		return ports.ErrNotFound{Name: "category"}
+	}
 	if userCategory.DeletedAt.Valid {
 		return ports.ErrNotFound{Name: "category"}
 	}

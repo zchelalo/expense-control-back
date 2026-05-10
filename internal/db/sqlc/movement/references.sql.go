@@ -67,7 +67,9 @@ func (q *Queries) DecreaseAccountBalance(ctx context.Context, arg DecreaseAccoun
 const getCategoryByIDForUser = `-- name: GetCategoryByIDForUser :one
 SELECT
   c.id,
-  c.name
+  c.name,
+  c.is_system,
+  c.system_key
 FROM user_categories uc
 INNER JOIN categories c
   ON c.id = uc.category_id
@@ -75,6 +77,7 @@ INNER JOIN categories c
 WHERE uc.category_id = $1
   AND uc.user_id = $2
   AND uc.deleted_at IS NULL
+  AND c.is_system = FALSE
 `
 
 type GetCategoryByIDForUserParams struct {
@@ -83,14 +86,21 @@ type GetCategoryByIDForUserParams struct {
 }
 
 type GetCategoryByIDForUserRow struct {
-	ID   pgtype.UUID `json:"id"`
-	Name string      `json:"name"`
+	ID        pgtype.UUID `json:"id"`
+	Name      string      `json:"name"`
+	IsSystem  bool        `json:"is_system"`
+	SystemKey pgtype.Text `json:"system_key"`
 }
 
 func (q *Queries) GetCategoryByIDForUser(ctx context.Context, arg GetCategoryByIDForUserParams) (GetCategoryByIDForUserRow, error) {
 	row := q.db.QueryRow(ctx, getCategoryByIDForUser, arg.CategoryID, arg.UserID)
 	var i GetCategoryByIDForUserRow
-	err := row.Scan(&i.ID, &i.Name)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.IsSystem,
+		&i.SystemKey,
+	)
 	return i, err
 }
 
